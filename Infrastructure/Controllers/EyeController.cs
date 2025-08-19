@@ -22,6 +22,21 @@ namespace TheEye.Infrastructure.Controllers
             var state = _sim.GetStateSnapshot();
             return Ok(MapToDto(state));
         }
+        [HttpPost("setDiameter")]
+        public ActionResult<EyeSnapshotDto> SetDiameter([FromBody] SetDiameterRequest req)
+        {
+            if (req == null || req.DiameterKm <= 0) return BadRequest("Provide positive diameterKm");
+            _sim.SetDiameter(req.DiameterKm);
+            return Ok(MapToDto(_sim.GetStateSnapshot()));
+        }
+
+        [HttpPost("shrink")]
+        public ActionResult<EyeSnapshotDto> Shrink([FromBody] ShrinkRequest req)
+        {
+            if (req == null || req.Percent <= 0 || req.Percent > 100) return BadRequest("Provide percent 0..100");
+            _sim.ShrinkByPercent(req.Percent);
+            return Ok(MapToDto(_sim.GetStateSnapshot()));
+        }
 
         [HttpPost("advance")]
         public ActionResult<EyeSnapshotDto> Advance([FromBody] AdvanceRequest req)
@@ -119,6 +134,7 @@ namespace TheEye.Infrastructure.Controllers
                 Y = s.Y,
                 BaseBearing = s.BaseBearing,
                 SpeedKmPerDay = s.SpeedKmPerDay,
+                DiameterKm = s.DiameterKm, // NEW
                 DriftVarianceDeg = s.DriftVarianceDeg,
                 JitterFraction = s.JitterFraction,
                 CourseShiftChancePerDay = s.CourseShiftChancePerDay,
@@ -136,6 +152,8 @@ namespace TheEye.Infrastructure.Controllers
         }
 
         // -------- Request models (kept nearby for convenience) --------
+        public record SetDiameterRequest { public double DiameterKm { get; init; } }
+        public record ShrinkRequest { public double Percent { get; init; } }
         public record AdvanceRequest { public double Hours { get; init; } }
         public record JumpRequest { public double Days { get; init; } }
         public record ApplyInfluenceRequest

@@ -17,6 +17,7 @@ namespace TheEye.Infrastructure.Services
                 Y = 0,
                 BaseBearing = 90.0,
                 SpeedKmPerDay = 10.0,
+                DiameterKm = 50.0, // default
                 DriftVarianceDeg = 5.0,
                 JitterFraction = 0.08,
                 CourseShiftChancePerDay = 0.03,
@@ -101,6 +102,27 @@ namespace TheEye.Infrastructure.Services
             double slowWanderDeg = (_rng.NextDouble() * 2 - 1) * (State.DriftVarianceDeg * 0.02 * hourFraction * State.PredictabilityRating);
             State.BaseBearing = NormalizeDeg(State.BaseBearing + slowWanderDeg);
         }
+
+        public void SetDiameter(double diameterKm)
+        {
+            if (diameterKm < 0) throw new ArgumentOutOfRangeException(nameof(diameterKm));
+            lock (_lock)
+            {
+                State.DiameterKm = diameterKm;
+            }
+        }
+
+        // shrink instantly by percentage (e.g., 20 -> reduces diameter by 20%)
+        public void ShrinkByPercent(double percent)
+        {
+            if (percent < 0 || percent > 100) throw new ArgumentOutOfRangeException(nameof(percent));
+            lock (_lock)
+            {
+                var factor = Math.Max(0.0, 1.0 - percent / 100.0);
+                State.DiameterKm = State.DiameterKm * factor;
+            }
+        }
+
 
         public void AddInfluence(ActiveInfluence inf)
         {

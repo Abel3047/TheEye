@@ -13,5 +13,11 @@ namespace TheEye.Application.Interfaces
         void Pause();
         void Resume();
         void Reset(EyeState newState);
+        void SetDiameter(double diameterKm);
+        /// <summary>
+        /// Percent cannot be more than 100 or less than 0.
+        /// </summary>
+        /// <param name="percent"></param>
+        void ShrinkByPercent(double percent); 
     }
 }
