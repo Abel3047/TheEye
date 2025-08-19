@@ -7,6 +7,11 @@ public class RealTimeTickerService : IHostedService, IDisposable
     private Timer? _timer;
 
     // Game time conversion: 90 real-world minutes per simulated day.
+    /// <summary>
+    /// Essentially, if you want to move the Eye simulation forward in time,so that it takes 90 minutes for 1 simulated day,
+    /// to pass, (which is approximately how long it will take before the Wall reaches the camp), then you put in 90 minutes.
+    /// But if you want a day to match 1 minute of real time, you set this to 1 minute (60 seconds).
+    /// </summary>
     private const double RealSecondsPerSimulatedDay = 90 * 60;
     private const double SimulatedHoursPerRealSecond = 24.0 / RealSecondsPerSimulatedDay;
 
