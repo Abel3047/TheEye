@@ -100,40 +100,81 @@
     <script>
         const apiRoot = "/Eye";
         let state = null;
+        let prevState = null;
         let initializedCamp = false;
-
-        // We want 50 km to fill most of the canvas (90% of smallest dimension)
         const BASE_EYE_DIAMETER = 50.0; // km used to compute initial scale
+        const POLL_MS = 2000;
+
+        // helper: linear interpolation
+        function lerp(a, b, t) { return a + (b - a) * t; }
 
         async function fetchState() {
             try {
                 const r = await fetch(apiRoot);
                 if (!r.ok) return;
-                state = await r.json();
-                render();
-                // initialize camp coords to eye center on first load
+                const newState = await r.json();
+                // diagnostic: log numeric changes
+                if (state) {
+                    const dx = newState.X - state.X;
+                    const dy = newState.Y - state.Y;
+                    console.log(`Eye moved (km): dx=${dx.toFixed(4)}, dy=${dy.toFixed(4)}`);
+                }
+                prevState = state;
+                state = newState;
+
+                // initialize camp coords to eye center on first load (camp starts inside Eye)
                 if (!initializedCamp) {
                     document.getElementById("campX").value = state.X.toFixed(2);
                     document.getElementById("campY").value = state.Y.toFixed(2);
                     initializedCamp = true;
                 }
+
+                // Render immediately (with prevState available for animation)
+                animateBetweenStates(prevState, state, POLL_MS);
             } catch (e) { console.error(e); }
         }
 
-        function render() {
-            if (!state) return;
-            document.getElementById("metrics").innerHTML = `
-                    <div>Eye Position: (${state.X.toFixed(1)}, ${state.Y.toFixed(1)}) km</div>
-                    <div>Bearing: ${state.BaseBearing.toFixed(1)}°</div>
-                    <div>Speed: ${state.SpeedKmPerDay.toFixed(2)} km/day</div>
-                    <div><strong>Diameter:</strong> ${state.DiameterKm.toFixed(2)} km</div>
-                    <div>Active influences: ${state.ActiveInfluences.length}</div>
-                    <div>Last updated: ${new Date(state.LastUpdated).toLocaleTimeString()}</div>
-                `;
-            drawCanvas();
+        function animateBetweenStates(a, b, duration) {
+            // if no previous state, render static
+            if (!a) {
+                render();
+                return;
+            }
+            const start = performance.now();
+            function step(now) {
+                const t = Math.min(1, (now - start) / duration);
+                // create an interpolated temporary state for drawing
+                const tmp = {
+                    X: lerp(a.X, b.X, t),
+                    Y: lerp(a.Y, b.Y, t),
+                    DiameterKm: lerp(a.DiameterKm, b.DiameterKm, t),
+                    BaseBearing: lerp(a.BaseBearing, b.BaseBearing, t),
+                    SpeedKmPerDay: lerp(a.SpeedKmPerDay, b.SpeedKmPerDay, t),
+                    ActiveInfluences: b.ActiveInfluences,
+                    LastUpdated: b.LastUpdated
+                };
+                render(tmp); // draw using the interpolated state
+                if (t < 1) requestAnimationFrame(step);
+            }
+            requestAnimationFrame(step);
         }
 
-        function drawCanvas() {
+        function render(templState) {
+            // templState is optional (during animation) otherwise use current
+            const s = templState || state;
+            if (!s) return;
+            document.getElementById("metrics").innerHTML = `
+        <div>Eye Position: (${s.X.toFixed(2)}, ${s.Y.toFixed(2)}) km</div>
+        <div>Bearing: ${s.BaseBearing.toFixed(1)}°</div>
+        <div>Speed: ${s.SpeedKmPerDay.toFixed(2)} km/day</div>
+        <div><strong>Diameter:</strong> ${s.DiameterKm.toFixed(2)} km</div>
+        <div>Active influences: ${s.ActiveInfluences.length}</div>
+        <div>Last updated: ${new Date(s.LastUpdated).toLocaleTimeString()}</div>
+      `;
+            drawCanvas(s);
+        }
+
+        function drawCanvas(s) {
             const canvas = document.getElementById("canvas");
             const ctx = canvas.getContext("2d");
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -146,130 +187,141 @@
             const desiredPxForBaseDiameter = minDim * 0.9;
             const scale = desiredPxForBaseDiameter / BASE_EYE_DIAMETER; // px per km
 
+            // Extract camp coordinates (viewport center)
+            const campX = parseFloat(document.getElementById("campX").value) || s.X;
+            const campY = parseFloat(document.getElementById("campY").value) || s.Y;
+
+            // Eye pixel coords relative to camp
+            const eyePxX = centerX + (s.X - campX) * scale;
+            const eyePxY = centerY - (s.Y - campY) * scale;
+
             // radius in pixels based on current diameter
-            const radiusPx = (state.DiameterKm / 2) * scale;
+            const radiusPx = (s.DiameterKm / 2) * scale;
 
             // background
             ctx.fillStyle = "#04151f";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // eye circle
+            // if we have prevState, draw its ghost first (to emphasize movement)
+            if (prevState) {
+                const prevEyePxX = centerX + (prevState.X - campX) * scale;
+                const prevEyePxY = centerY - (prevState.Y - campY) * scale;
+                const prevRadiusPx = (prevState.DiameterKm / 2) * scale;
+                ctx.beginPath();
+                ctx.arc(prevEyePxX, prevEyePxY, Math.max(2, prevRadiusPx), 0, Math.PI * 2);
+                ctx.fillStyle = "rgba(200,150,80,0.06)";
+                ctx.fill();
+                ctx.strokeStyle = "rgba(200,150,80,0.18)";
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                // small marker for previous center
+                ctx.fillStyle = "rgba(200,200,200,0.3)";
+                ctx.beginPath(); ctx.arc(prevEyePxX, prevEyePxY, 4, 0, Math.PI * 2); ctx.fill();
+            }
+
+            // draw current eye
             ctx.beginPath();
-            ctx.arc(centerX, centerY, Math.max(2, radiusPx), 0, Math.PI * 2);
+            ctx.arc(eyePxX, eyePxY, Math.max(2, radiusPx), 0, Math.PI * 2);
             ctx.fillStyle = "rgba(200,150,80,0.12)";
             ctx.fill();
-
-            // set line width in proportion to speed, but keep it sane
-            const lw = Math.max(1, Math.min(12, state.SpeedKmPerDay / 2.0));
+            const lw = Math.max(1, Math.min(12, s.SpeedKmPerDay / 2.0));
             ctx.lineWidth = lw;
             ctx.strokeStyle = "rgba(200,150,80,0.6)";
             ctx.stroke();
 
             // eye center
             ctx.beginPath();
-            ctx.arc(centerX, centerY, 6, 0, Math.PI * 2);
+            ctx.arc(eyePxX, eyePxY, 6, 0, Math.PI * 2);
             ctx.fillStyle = "#ffd880";
             ctx.fill();
-            ctx.fillStyle = "#000";
-            ctx.font = "12px Arial";
-            ctx.fillText("Eye Center", centerX + 10, centerY + 4);
 
             // bearing arrow
-            const rad = (90 - state.BaseBearing) * Math.PI / 180;
-            const arrowLen = Math.max(60, radiusPx * 0.5);
+            const rad = (90 - s.BaseBearing) * Math.PI / 180;
+            const arrowLen = Math.max(40, radiusPx * 0.5);
             ctx.beginPath();
-            ctx.moveTo(centerX, centerY);
-            ctx.lineTo(centerX + Math.cos(rad) * arrowLen, centerY + Math.sin(rad) * arrowLen);
+            ctx.moveTo(eyePxX, eyePxY);
+            ctx.lineTo(eyePxX + Math.cos(rad) * arrowLen, eyePxY + Math.sin(rad) * arrowLen);
             ctx.strokeStyle = "#88c0ff";
             ctx.lineWidth = 2;
             ctx.stroke();
 
-            // camp: convert camp coords (km) to pixel positions relative to eye center
-            const campX = parseFloat(document.getElementById("campX").value) || state.X;
-            const campY = parseFloat(document.getElementById("campY").value) || state.Y;
-            const campPxX = centerX + (campX - state.X) * scale;
-            const campPxY = centerY - (campY - state.Y) * scale;
-
-            // draw camp marker
+            // camp is center of viewport
             ctx.fillStyle = "#ff6b6b";
             ctx.beginPath();
-            ctx.arc(campPxX, campPxY, 8, 0, Math.PI * 2);
+            ctx.arc(centerX, centerY, 8, 0, Math.PI * 2);
             ctx.fill();
             ctx.fillStyle = "#ffe";
             ctx.font = "13px Arial";
-            ctx.fillText("Camp", campPxX + 10, campPxY + 5);
+            ctx.fillText("Camp (you)", centerX + 10, centerY + 5);
 
-            // optionally draw a faint grid for scale (every 10 km)
-            drawScaleGrid(ctx, centerX, centerY, scale, radiusPx);
-        }
-
-        function drawScaleGrid(ctx, centerX, centerY, scale, radiusPx) {
-            // draw rings every 10 km up to 3 rings or until exceeds canvas
-            ctx.save();
-            ctx.strokeStyle = "rgba(150,180,200,0.06)";
-            ctx.lineWidth = 1;
-            ctx.setLineDash([4, 6]);
-            for (let km = 10; km <= BASE_EYE_DIAMETER; km += 10) {
-                const r = km * scale;
-                if (r > Math.max(centerX, centerY) * 2) break;
-                ctx.beginPath();
-                ctx.arc(centerX, centerY, r, 0, Math.PI * 2);
-                ctx.stroke();
-                ctx.fillStyle = "rgba(180,200,220,0.08)";
-                ctx.font = "11px Arial";
-                ctx.fillText(`${km} km`, centerX + r + 6, centerY);
+            // debug: write pixel delta between prev and current
+            if (prevState) {
+                const dxPx = ((s.X - prevState.X) * scale).toFixed(3);
+                const dyPx = ((s.Y - prevState.Y) * scale).toFixed(3);
+                ctx.fillStyle = "#9fb7cc";
+                ctx.font = "12px Arial";
+                ctx.fillText(`Δpx: ${dxPx}, ${dyPx}`, 10, canvas.height - 10);
             }
-            ctx.restore();
         }
 
-        // ---- button hooks ----
-        document.getElementById("advanceDay").addEventListener("click", async () => {
-            await fetch("/Eye/advance", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ hours: 24 }) });
-            await fetchState();
+        function drawScaleGrid(ctx, centerX, centerY, scale) {
+            ctx.save(); ctx.strokeStyle = "rgba(150,180,200,0.06)"; ctx.lineWidth = 1; ctx.setLineDash([4, 6]); // rings every 10 km 
+            for (let km = 10; km <= BASE_EYE_DIAMETER * 2; km += 10) {
+                const r = km * scale; // stop if ring exceeds canvas bounds significantly 
+                if (r > Math.max(centerX, centerY) * 2) break;
+                ctx.beginPath(); ctx.arc(centerX, centerY, r, 0, Math.PI * 2);
+                ctx.stroke(); ctx.fillStyle = "rgba(180,200,220,0.06)";
+                ctx.font = "11px Arial";
+                ctx.fillText(${ km } km, centerX + r + 6, centerY + 4);
+            } ctx.restore();
+        } 
+            // ---- button hooks ---- 
+        document.getElementById("advanceDay").addEventListener("click", async () =>
+        {
+            await fetch("/Eye/advance", {
+                method: "POST", headers: { "content-type": "application/json" },
+                body: JSON.stringify({ hours: 24 })
+            }); await fetchState();
         });
-        document.getElementById("pause").addEventListener("click", async () => {
-            await fetch("/Eye/pause", { method: "POST" });
-            await fetchState();
+
+        document.getElementById("pause").addEventListener("click", async () =>
+        {
+            await fetch("/Eye/pause", { method: "POST" }); await fetchState();
         });
-        document.getElementById("resume").addEventListener("click", async () => {
+        document.getElementById("resume").addEventListener("click", async () =>
+        {
             await fetch("/Eye/resume", { method: "POST" });
             await fetchState();
         });
-        document.getElementById("calcArrival").addEventListener("click", () => {
-            if (!state) return;
-            const campX = parseFloat(document.getElementById("campX").value) || 0;
-            const campY = parseFloat(document.getElementById("campY").value) || 0;
-            const dx = campX - state.X;
-            const dy = campY - state.Y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            const edgeDist = Math.max(0, dist - state.DiameterKm / 2.0);
-            const days = edgeDist / state.SpeedKmPerDay;
-            document.getElementById("eta").innerText =
-                `Edge distance: ${edgeDist.toFixed(1)} km ≈ ${Math.max(0, days).toFixed(2)} days`;
+        document.getElementById("calcArrival").addEventListener("click", () =>
+        {
+            if (!state) return; const campX = parseFloat(document.getElementById("campX").value) || 0; const campY = parseFloat(document.getElementById("campY").value) || 0; const dx = campX - state.X; const dy = campY - state.Y; const dist = Math.sqrt(dx * dx + dy * dy); const edgeDist = Math.max(0, dist - state.DiameterKm / 2.0); const days = edgeDist / state.SpeedKmPerDay; document.getElementById("eta").innerText = Edge distance: ${ edgeDist.toFixed(1) } km ≈ ${ Math.max(0, days).toFixed(2) } days;
         });
 
-        document.getElementById("shrinkBtn").addEventListener("click", async () => {
+        document.getElementById("shrinkBtn").addEventListener("click", async () =>
+        {
             const pct = parseFloat(document.getElementById("shrinkPercent").value) || 10;
             await fetch("/Eye/shrink", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ percent: pct }) });
             await fetchState();
         });
 
-        document.getElementById("setDiameterBtn").addEventListener("click", async () => {
+        document.getElementById("setDiameterBtn").addEventListener("click", async () =>
+        {
             const d = parseFloat(document.getElementById("setDiameter").value) || 50;
             await fetch("/Eye/setDiameter", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ diameterKm: d }) });
             await fetchState();
         });
 
-        document.getElementById("shrinkOverBtn").addEventListener("click", async () => {
-            const target = parseFloat(document.getElementById("shrinkTarget").value) || 20;
-            const hours = parseInt(document.getElementById("shrinkHours").value) || 12;
+        document.getElementById("shrinkOverBtn").addEventListener("click", async () =>
+        {
+            const target = parseFloat(document.getElementById("shrinkTarget").value) || 20; const hours = parseInt(document.getElementById("shrinkHours").value) || 12;
             await fetch("/Eye/shrink-over-time", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ targetDiameterKm: target, durationHours: hours }) });
             await fetchState();
         });
 
-        // polling
-        setInterval(fetchState, 2000);
+        setInterval(fetchState, POLL_MS);
         fetchState();
     </script>
+
 </body>
 </html>
