@@ -10,6 +10,8 @@ builder.Services.AddSingleton<IEyeSimulator, EyeSimulatorService>();
 builder.Services.AddSingleton<IHistoryRecorder>(sp =>
     new HistoryRecorder(Path.Combine(AppContext.BaseDirectory, "logs", "eye_history.txt")));
 
+builder.Services.AddHostedService<RealTimeTickerService>();
+
 builder.Services.AddControllers().AddJsonOptions(opts =>
 {
     opts.JsonSerializerOptions.PropertyNamingPolicy = null;

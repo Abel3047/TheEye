@@ -109,7 +109,7 @@
                 Y: <input id="campY" type="number" value="0" step="0.1" />
                 <button id="centerCamp">Center on Eye</button>
             </div>
-            <div class="small" id="eta">ETA: —</div>
+            <div class="small" id="eta">ETA: </div>
 
             <hr style="border: none; height:1px; background:#0e3244; margin:10px 0;" />
 
@@ -173,10 +173,7 @@
                 <button id="resume">Resume</button>
                 <button id="resetBtn" class="secondary">Reset</button>
             </div>
-
-            <div class="small" style="margin-top:8px;">
-                Trail length: <span id="trailLen">60</span> • Poll: <span id="pollMs">2000</span> ms
-            </div>
+            
             <div class="small" id="lastLog"></div>
         </div>
 
@@ -216,9 +213,7 @@
         const ctx = canvas.getContext("2d");
         const campXInput = document.getElementById("campX");
         const campYInput = document.getElementById("campY");
-        document.getElementById("trailLen").innerText = TRAIL_MAX;
-        document.getElementById("pollMs").innerText = POLL_MS;
-
+        
         /* ===== helpers ===== */
         function safeFetch(url, opts) {
             return fetch(url, opts).then(r => {
