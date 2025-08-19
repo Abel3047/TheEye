@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 using TheEye.Application.DTOs;
 using TheEye.Application.Interfaces;
 using TheEye.Core.Models;
@@ -30,11 +31,12 @@ namespace TheEye.Infrastructure.Controllers
             return Ok(MapToDto(_sim.GetStateSnapshot()));
         }
 
-        [HttpPost("shrink")]
-        public ActionResult<EyeSnapshotDto> Shrink([FromBody] ShrinkRequest req)
+        [HttpPost("shrink-over-time")]
+        public IActionResult ShrinkOverTime([FromBody] ShrinkOverTimeRequest req)
         {
-            if (req == null || req.Percent <= 0 || req.Percent > 100) return BadRequest("Provide percent 0..100");
-            _sim.ShrinkByPercent(req.Percent);
+            if (req == null || req.DurationHours <= 0 || req.TargetDiameterKm < 0) return BadRequest();
+            _sim.ShrinkOverTime(req.TargetDiameterKm, req.DurationHours);
+            // return immediate snapshot after scheduling
             return Ok(MapToDto(_sim.GetStateSnapshot()));
         }
 
@@ -153,7 +155,7 @@ namespace TheEye.Infrastructure.Controllers
 
         // -------- Request models (kept nearby for convenience) --------
         public record SetDiameterRequest { public double DiameterKm { get; init; } }
-        public record ShrinkRequest { public double Percent { get; init; } }
+        public record ShrinkOverTimeRequest { public double TargetDiameterKm { get; init; } public int DurationHours { get; init; } }
         public record AdvanceRequest { public double Hours { get; init; } }
         public record JumpRequest { public double Days { get; init; } }
         public record ApplyInfluenceRequest

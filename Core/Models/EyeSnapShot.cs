@@ -6,6 +6,7 @@
     public double X { get; init; }
     public double Y { get; init; }
     public double BaseBearing { get; init; }
+    public double DiameterKm { get; set; }
     public double SpeedKmPerDay { get; init; }
     public double DriftVarianceDeg { get; init; }
     public double JitterFraction { get; init; }

@@ -18,6 +18,12 @@ namespace TheEye.Application.Interfaces
         /// Percent cannot be more than 100 or less than 0.
         /// </summary>
         /// <param name="percent"></param>
-        void ShrinkByPercent(double percent); 
+        void ShrinkByPercent(double percent);
+        /// <summary>
+        /// Shrink the Eye diameter from current value to targetDiameter (km) evenly over durationHours simulated hours.
+        /// The simulator will advance internal simulation by each hour step and record snapshots via IHistoryRecorder.
+        /// This call is non-blocking; it schedules the shrink operation.
+        /// </summary>
+        void ShrinkOverTime(double targetDiameterKm, double durationHours);
     }
 }

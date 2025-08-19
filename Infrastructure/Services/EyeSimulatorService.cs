@@ -1,4 +1,5 @@
-﻿using TheEye.Application.Interfaces;
+﻿using TheEye.Application.DTOs;
+using TheEye.Application.Interfaces;
 using TheEye.Core.Models;
 
 namespace TheEye.Infrastructure.Services
@@ -7,10 +8,17 @@ namespace TheEye.Infrastructure.Services
     {
         readonly object _lock = new();
         readonly Random _rng = new();
+
+        readonly IHistoryRecorder? _recorder;
+        // manage any running shrink job
+        CancellationTokenSource? _shrinkCts;
+        Task? _shrinkTask;
+
         public EyeState State { get; private set; }
 
-        public EyeSimulatorService()
+        public EyeSimulatorService(IHistoryRecorder? recorder = null)
         {
+            _recorder = recorder;
             State = new EyeState
             {
                 X = 0,
@@ -34,6 +42,41 @@ namespace TheEye.Infrastructure.Services
             {
                 // Return the state reference - the API should map to DTO so it doesn't expose domain internals
                 return State;
+            }
+        }
+        async Task RecordSnapshotAsync()
+        {
+            if (_recorder == null) return;
+            try
+            {
+                var dto = new EyeSnapshotDto
+                {
+                    Id = State.Id,
+                    X = State.X,
+                    Y = State.Y,
+                    BaseBearing = State.BaseBearing,
+                    SpeedKmPerDay = State.SpeedKmPerDay,
+                    DiameterKm = State.DiameterKm,
+                    DriftVarianceDeg = State.DriftVarianceDeg,
+                    JitterFraction = State.JitterFraction,
+                    CourseShiftChancePerDay = State.CourseShiftChancePerDay,
+                    PredictabilityRating = State.PredictabilityRating,
+                    Paused = State.Paused,
+                    LastUpdated = State.LastUpdated,
+                    ActiveInfluences = State.ActiveInfluences.Select(i => new ActiveInfluenceView
+                    {
+                        Name = i.Name,
+                        DirectionDeg = i.DirectionDeg,
+                        MagnitudeKmPerDay = i.MagnitudeKmPerDay,
+                        RemainingHours = i.RemainingHours
+                    }).ToList()
+                };
+
+                await _recorder.RecordAsync(dto);
+            }
+            catch
+            {
+                // swallow recorder exceptions to avoid destabilizing simulator; consider logging
             }
         }
 
@@ -109,6 +152,8 @@ namespace TheEye.Infrastructure.Services
             lock (_lock)
             {
                 State.DiameterKm = diameterKm;
+                // record asynchronously (fire-and-forget)
+                _ = RecordSnapshotAsync();
             }
         }
 
@@ -120,10 +165,62 @@ namespace TheEye.Infrastructure.Services
             {
                 var factor = Math.Max(0.0, 1.0 - percent / 100.0);
                 State.DiameterKm = State.DiameterKm * factor;
+                _ = RecordSnapshotAsync();
             }
         }
 
+        public void ShrinkOverTime(double targetDiameterKm, double durationHours)
+        {
+            if (durationHours <= 0) throw new ArgumentOutOfRangeException(nameof(durationHours));
+            if (targetDiameterKm < 0) throw new ArgumentOutOfRangeException(nameof(targetDiameterKm));
 
+            lock (_lock)
+            {
+                // cancel any prior shrink
+                _shrinkCts?.Cancel();
+                _shrinkCts?.Dispose();
+                _shrinkCts = new CancellationTokenSource();
+                var token = _shrinkCts.Token;
+
+                // snapshot current & compute per-hour decrement
+                double start = State.DiameterKm;
+                double delta = targetDiameterKm - start;
+                double perHour = delta / durationHours;
+
+                // schedule background task
+                _shrinkTask = Task.Run(async () =>
+                {
+                    try
+                    {
+                        for (int h = 1; h <= durationHours; h++)
+                        {
+                            if (token.IsCancellationRequested) break;
+
+                            // Each simulated hour: advance simulation one hour and adjust diameter
+                            AdvanceHours(1.0); // step the world an hour (this also updates LastUpdated)
+                            lock (_lock)
+                            {
+                                State.DiameterKm = start + perHour * h;
+                            }
+
+                            // record snapshot after the hour step
+                            await RecordSnapshotAsync();
+
+                            // small real-time pause to allow UI animation pacing (optional: remove for instant)
+                            // We keep a short delay so dashboards can animate. If you want faster or controlled
+                            // pace, wire this through config or caller preference.
+                            await Task.Delay(250, token); // 250ms per simulated hour by default
+                        }
+
+                        // final correction to exact target and final record
+                        lock (_lock) State.DiameterKm = targetDiameterKm;
+                        await RecordSnapshotAsync();
+                    }
+                    catch (OperationCanceledException) { /* cancelled - ignore */ }
+                    catch { /* swallow to keep sim stable - optional logging */ }
+                }, token);
+            }
+        }
         public void AddInfluence(ActiveInfluence inf)
         {
             lock (_lock) { State.ActiveInfluences.Add(inf); }
@@ -140,6 +237,7 @@ namespace TheEye.Infrastructure.Services
             {
                 State.BaseBearing = NormalizeDeg(bearingDeg);
                 State.SpeedKmPerDay = speedKmPerDay;
+                _ = RecordSnapshotAsync();
             }
         }
 
@@ -163,6 +261,7 @@ namespace TheEye.Infrastructure.Services
             lock (_lock)
             {
                 State = newState ?? throw new ArgumentNullException(nameof(newState));
+                _ = RecordSnapshotAsync();
             }
         }
     }

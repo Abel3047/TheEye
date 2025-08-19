@@ -198,6 +198,18 @@ document.getElementById("setDiameterBtn").addEventListener("click", async ()=>{
   await fetchState();
 });
 
+async function animateShrink(targetDiameter, durationInHours) {
+    const currentDiameter = parseFloat(document.getElementById("eye-diameter").innerText);
+    const step = (targetDiameter - currentDiameter) / durationInHours;
+
+    let newDiameter = currentDiameter;
+    for (let i = 0; i < durationInHours; i++) {
+        newDiameter += step;
+        document.getElementById("eye-diameter").innerText = newDiameter.toFixed(2) + " km";
+        await new Promise(resolve => setTimeout(resolve, 1000)); // animate 1 sec per "hour"
+    }
+}
+
 // polling
 setInterval(fetchState, 2000);
 fetchState();

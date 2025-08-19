@@ -21,5 +21,6 @@
         public bool Paused { get; set; } = false;
         public DateTime LastUpdated { get; set; } = DateTime.UtcNow;
         public List<ActiveInfluence> ActiveInfluences { get; } = new();
+
     }
 }
