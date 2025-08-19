@@ -1,13 +1,13 @@
 🌪️ The Eye Almanac
 A Dynamic Storm Simulation Tool for Narrative Gameplay
 
-The Eye Almanac is a C# project that simulates the movement and behavior of colossal, never-ending hurricanes in a post-apocalyptic world ravaged by runaway fusion reactors and climate collapse.
+The Eye Almanac is a C# project that simulates the movement and behavior of colossal, never-ending hurricanes in a post-apocalyptic world ravaged by runaway weather engines and climate collapse.
 
 Designed for use alongside AboveVTT or other virtual tabletop tools, this middleware provides real-time data on storm behavior—turning environmental storytelling into a visceral, dynamic experience for players.
 
 🎮 Gameplay Purpose
 
-In the campaign world, the Eye of the Storm is both sanctuary and prison. Civilization survives only within its calm center, while the deadly Eye Wall outside makes escape nearly impossible. The Eye Almanac helps Dungeon Masters inject tension into sessions by:
+In the campaign world, The Eye is both sanctuary and prison. Civilization survives only within its calm center, while the deadly Wall outside makes escape nearly impossible. The Eye Almanac helps Dungeon Masters inject tension into sessions by:
 
 -Simulating Eye movement across the world map (6–18 km per in-game day).
 
