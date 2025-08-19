@@ -17,6 +17,7 @@ In the campaign world, the Eye of the Storm is both sanctuary and prison. Civili
 
 -Generating DM-facing data such as Eye speed, vector changes, and storm intensity.
 
+
 Players can see this information via a lightweight HTML/JS dashboard that updates live, creating a feeling of urgency and inevitability.
 
 🛠️ Technical Overview
@@ -24,16 +25,24 @@ Players can see this information via a lightweight HTML/JS dashboard that update
 Built with Clean Architecture principles, the code is separated into distinct layers:
 
 -Domain Layer → Core storm models and simulation logic.
+
 -Application Layer → Services for Eye behavior, direction randomness, and rules for contraction/expansion.
+
 -Infrastructure Layer → Data persistence and middleware hooks.
+
 -Presentation Layer → API endpoints for DM interaction.
+
 
 Features:
 
 -Written in C# (.NET 8) with extensibility in mind.
+
 -REST endpoints for jump inputs (e.g., advance storm by X days).
+
 -HTML/JS dashboard for visualization.
+
 -Modular controllers for clarity and best practices.
+
 
 📂 Project Structure
 EyeAlmanac/
@@ -55,14 +64,21 @@ EyeAlmanac/
 The Eye Almanac is more than code—it’s a storytelling device. It embodies the constant dread of survival in a world where the very atmosphere is weaponized. By introducing unpredictability and scarcity through storm dynamics, DMs can reinforce the themes of:
 
 -Fragility of civilization under overwhelming natural forces.
+
 -Tension of scarcity, as food, water, and parts must be scavenged before the Eye moves again.
+
 -The inevitability of change, forcing difficult moral and tactical decisions.
+
+
 
 📺 Twitch & Public Engagement
 
 This project is intended for dual use:
 
 -Employers & Collaborators → Demonstrates ability to design clean, modular C# systems and integrate narrative mechanics into code.
+
 -Twitch & Community → Adds a real-time "weather report" layer to roleplay, letting viewers track the Eye’s progression like an apocalyptic news broadcast.
+
+
 
 Ultimately this project is a display of my love to code and my even greater love for story telling in Dungeons and Dragons as a Dungeon Master
