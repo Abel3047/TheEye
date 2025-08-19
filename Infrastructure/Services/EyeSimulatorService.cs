@@ -9,6 +9,13 @@ namespace TheEye.Infrastructure.Services
         readonly object _lock = new();
         readonly Random _rng = new();
 
+        //DnD real-time to game time session properties
+        //default mapping (90 minutes real per simulated day)
+        private static readonly double _realSecondsPerSimDay = 90 * 60; // 90 minutes => 5400 seconds
+        // inside the shrink task:
+        double realMsPerSimHour = (_realSecondsPerSimDay / 24.0) * 1000.0; // 225000 ms for 90 minutes/day
+
+
         readonly IHistoryRecorder? _recorder;
         // manage any running shrink job
         CancellationTokenSource? _shrinkCts;
@@ -169,6 +176,7 @@ namespace TheEye.Infrastructure.Services
             }
         }
 
+        //Here are some helper methods
         public void ShrinkOverTime(double targetDiameterKm, double durationHours)
         {
             if (durationHours <= 0) throw new ArgumentOutOfRangeException(nameof(durationHours));
@@ -209,7 +217,7 @@ namespace TheEye.Infrastructure.Services
                             // small real-time pause to allow UI animation pacing (optional: remove for instant)
                             // We keep a short delay so dashboards can animate. If you want faster or controlled
                             // pace, wire this through config or caller preference.
-                            await Task.Delay(250, token); // 250ms per simulated hour by default
+                            await Task.Delay((int)realMsPerSimHour, token); // 250ms per simulated hour by default
                         }
 
                         // final correction to exact target and final record
