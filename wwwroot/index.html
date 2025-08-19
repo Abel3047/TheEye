@@ -193,12 +193,23 @@
         const TRAIL_MAX = 60;                 // how many past points to keep
         const BASE_EYE_DIAMETER = 50.0;       // km used to map scale
         const BASE_EYE_COVER = 0.85;          // proportion of smallest canvas dim for base diameter (85%)
+
+        /* Exposure grid config */
+        const GRID_CELLS_X = 160;             // resolution horizontally (160 => 160*100 operations; tune if needed)
+        const GRID_CELLS_Y = 96;              // resolution vertically (keeps roughly same aspect as 1000x600)
+        const EXPOSURE_DECAY_PER_SECOND = 0.08; // how fast exposure fades (higher = faster fade)
+        const MAX_EXPOSURE = 20.0;            // clamp exposure for color mapping
+
         /* =========================== */
 
         let state = null;
         let prevState = null;
         let trail = []; // array of {t: timestamp, X, Y, DiameterKm}
         let initializedCamp = false;
+
+        // exposure grid (float32 for speed)
+        let exposure = new Float32Array(GRID_CELLS_X * GRID_CELLS_Y);
+        let lastExposureTime = Date.now(); // wall-clock to compute decay
 
         // UI elements
         const canvas = document.getElementById("canvas");
@@ -208,6 +219,7 @@
         document.getElementById("trailLen").innerText = TRAIL_MAX;
         document.getElementById("pollMs").innerText = POLL_MS;
 
+        /* ===== helpers ===== */
         function safeFetch(url, opts) {
             return fetch(url, opts).then(r => {
                 if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -225,37 +237,113 @@
             }
         }
 
+        function lerp(a, b, t) { return a + (b - a) * t; }
+
+        /* ===== Main poll & animate loop ===== */
+
         async function fetchState() {
             const newState = await getState();
             if (!newState) return;
+
             // shift prev->state
             prevState = state ? { ...state } : null;
             state = newState;
 
-            // initialize camp to eye center on first load
+            // initialize camp only ONCE to the Eye center
             if (!initializedCamp) {
                 campXInput.value = state.X.toFixed(3);
                 campYInput.value = state.Y.toFixed(3);
                 initializedCamp = true;
             }
 
-            // Append a trail point (use the state snapshot)
+            // append to trail for optional rendering
             trail.push({ t: Date.now(), X: state.X, Y: state.Y, DiameterKm: state.DiameterKm });
             if (trail.length > TRAIL_MAX) trail.shift();
 
-            // animate between prevState -> state over POLL_MS
+            // compute simulated time delta (hours) using LastUpdated fields if available
+            let simHours = 0.5; // fallback small exposure if timestamps missing
+            try {
+                if (prevState && state && state.LastUpdated && prevState.LastUpdated) {
+                    const then = Date.parse(prevState.LastUpdated);
+                    const now = Date.parse(state.LastUpdated);
+                    const secs = Math.max(0, (now - then) / 1000.0);
+                    simHours = secs / 3600.0;
+                    // if timestamps are identical (sim didn't advance), fallback to 1 hour
+                    if (simHours <= 0) simHours = 1.0;
+                } else {
+                    simHours = 1.0;
+                }
+            } catch (e) { simHours = 1.0; }
+
+            // accumulate exposure on grid cells covered by Eye for simHours
+            accumulateExposure(state, simHours);
+
+            // animate between prevState -> state to give smooth movement over the poll interval
             animateBetween(prevState, state, POLL_MS);
 
-            // update metrics/logs
+            // update last log marker
             document.getElementById("lastLog").innerText = `Last polled: ${new Date().toLocaleTimeString()}`;
         }
 
-        function animateBetween(a, b, durationMs) {
-            // if no previous state, just render current
-            if (!a) {
-                render(b);
-                return;
+        /* accumulate exposure onto the grid */
+        function accumulateExposure(snap, simHours) {
+            if (!snap) return;
+
+            // compute mapping pxPerKm identical to drawCanvas mapping
+            const minDim = Math.min(canvas.width, canvas.height);
+            const desiredPx = minDim * BASE_EYE_COVER;
+            const pxPerKm = desiredPx / BASE_EYE_DIAMETER;
+
+            // world area shown by canvas (in km)
+            const worldWidthKm = canvas.width / pxPerKm;
+            const worldHeightKm = canvas.height / pxPerKm;
+
+            // camp world coords
+            const campX = parseFloat(campXInput.value) || snap.X;
+            const campY = parseFloat(campYInput.value) || snap.Y;
+
+            // Eye center relative to camp (in km)
+            const eyeRelX = snap.X - campX;
+            const eyeRelY = snap.Y - campY;
+            const eyeRadiusKm = snap.DiameterKm / 2.0;
+
+            // grid cell size in world km
+            const cellKmX = worldWidthKm / GRID_CELLS_X;
+            const cellKmY = worldHeightKm / GRID_CELLS_Y;
+
+            // bounding grid indices to iterate
+            const minXkm = eyeRelX - eyeRadiusKm;
+            const maxXkm = eyeRelX + eyeRadiusKm;
+            const minYkm = eyeRelY - eyeRadiusKm;
+            const maxYkm = eyeRelY + eyeRadiusKm;
+
+            const minI = Math.max(0, Math.floor((minXkm + worldWidthKm / 2) / cellKmX));
+            const maxI = Math.min(GRID_CELLS_X - 1, Math.ceil((maxXkm + worldWidthKm / 2) / cellKmX));
+            const minJ = Math.max(0, Math.floor(((-maxYkm) + worldHeightKm / 2) / cellKmY)); // note Y inversion
+            const maxJ = Math.min(GRID_CELLS_Y - 1, Math.ceil(((-minYkm) + worldHeightKm / 2) / cellKmY));
+
+            // add exposure: approximate by cell center distance test (fast)
+            const addAmount = simHours; // exposure units per sim hour (you can scale)
+            for (let j = minJ; j <= maxJ; j++) {
+                for (let i = minI; i <= maxI; i++) {
+                    const cellCenterWorldX = (i + 0.5) * cellKmX - (worldWidthKm / 2);
+                    const cellCenterWorldY = -((j + 0.5) * cellKmY - (worldHeightKm / 2)); // invert back
+                    const dx = cellCenterWorldX - eyeRelX;
+                    const dy = cellCenterWorldY - eyeRelY;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist <= eyeRadiusKm) {
+                        // exposure increment can scale by how deep inside circle (optional)
+                        const frac = 1 - (dist / eyeRadiusKm); // center gets higher weight
+                        const idx = j * GRID_CELLS_X + i;
+                        exposure[idx] = Math.min(MAX_EXPOSURE, exposure[idx] + addAmount * frac);
+                    }
+                }
             }
+        }
+
+        /* animate interpolation */
+        function animateBetween(a, b, durationMs) {
+            if (!a) { render(b); return; }
             const start = performance.now();
             function frame(now) {
                 const t = Math.min(1, (now - start) / durationMs);
@@ -274,92 +362,101 @@
             requestAnimationFrame(frame);
         }
 
-        function lerp(a, b, t) { return a + (b - a) * t; }
-
-        function render(s) {
-            const snap = s || state;
-            if (!snap) return;
+        /* render uses snap (interpolated) */
+        function render(snap) {
+            const s = snap || state;
+            if (!s) return;
             // metrics
             document.getElementById("metrics").innerHTML = `
-        <div class="muted">Eye Pos: (${snap.X.toFixed(3)}, ${snap.Y.toFixed(3)}) km</div>
-        <div class="muted">Bearing: ${snap.BaseBearing.toFixed(1)}° • Speed: ${snap.SpeedKmPerDay.toFixed(2)} km/day</div>
-        <div><strong>Diameter:</strong> ${snap.DiameterKm.toFixed(2)} km</div>
-        <div class="muted">Influences: ${snap.ActiveInfluences.length} • Last: ${new Date(snap.LastUpdated).toLocaleTimeString()}</div>
+        <div class="muted">Eye Pos: (${s.X.toFixed(3)}, ${s.Y.toFixed(3)}) km</div>
+        <div class="muted">Bearing: ${s.BaseBearing.toFixed(1)}° • Speed: ${s.SpeedKmPerDay.toFixed(2)} km/day</div>
+        <div><strong>Diameter:</strong> ${s.DiameterKm.toFixed(2)} km</div>
+        <div class="muted">Influences: ${s.ActiveInfluences.length} • Last: ${new Date(s.LastUpdated).toLocaleTimeString()}</div>
       `;
-            drawCanvas(snap);
+            drawCanvas(s);
         }
 
+        /* drawCanvas now paints exposure grid first, then Eye, then camp */
         function drawCanvas(snap) {
+            // decay exposure based on real time passed
+            const now = Date.now();
+            const dtSec = Math.max(0, (now - lastExposureTime) / 1000.0);
+            lastExposureTime = now;
+            if (dtSec > 0) {
+                const decayFactor = Math.exp(-EXPOSURE_DECAY_PER_SECOND * dtSec);
+                for (let i = 0; i < exposure.length; i++) exposure[i] *= decayFactor;
+            }
+
+            // prepare mapping
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            // center of viewport = camp
             const cx = canvas.width / 2;
             const cy = canvas.height / 2;
-
-            // scale: map BASE_EYE_DIAMETER -> BASE_EYE_COVER * minDim px
             const minDim = Math.min(canvas.width, canvas.height);
             const desiredPx = minDim * BASE_EYE_COVER;
             const pxPerKm = desiredPx / BASE_EYE_DIAMETER;
+            const worldWidthKm = canvas.width / pxPerKm;
+            const worldHeightKm = canvas.height / pxPerKm;
 
-            // camp coords in world (from inputs)
-            const campX = parseFloat(campXInput.value) || snap.X;
-            const campY = parseFloat(campYInput.value) || snap.Y;
+            // camp world coords
+            const campX = parseFloat(campXInput.value) || (snap ? snap.X : 0);
+            const campY = parseFloat(campYInput.value) || (snap ? snap.Y : 0);
 
-            // draw faint background
-            ctx.fillStyle = "#04151f";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // draw trail (older first)
-            for (let i = 0; i < trail.length; i++) {
-                const p = trail[i];
-                const ageFactor = i / trail.length; // 0..1
-                const opacity = (0.15 + 0.85 * (ageFactor)); // older = darker or lighter? we'll fade oldest more
-                const tx = cx + (p.X - campX) * pxPerKm;
-                const ty = cy - (p.Y - campY) * pxPerKm;
-                const tr = Math.max(1, (p.DiameterKm / 2) * pxPerKm);
-                ctx.beginPath();
-                ctx.arc(tx, ty, tr, 0, Math.PI * 2);
-                ctx.fillStyle = `rgba(200,150,80,${0.06 * (ageFactor + 0.2)})`;
-                ctx.fill();
-                ctx.strokeStyle = `rgba(200,150,80,${0.06 * (ageFactor + 0.6)})`;
-                ctx.lineWidth = 1;
-                ctx.stroke();
+            // draw exposure grid as colored rectangles (fade by exposure)
+            const cellW = canvas.width / GRID_CELLS_X;
+            const cellH = canvas.height / GRID_CELLS_Y;
+            for (let j = 0; j < GRID_CELLS_Y; j++) {
+                for (let i = 0; i < GRID_CELLS_X; i++) {
+                    const idx = j * GRID_CELLS_X + i;
+                    const val = exposure[idx];
+                    if (val <= 0.0001) continue; // skip blank
+                    // map exposure to color intensity [0..1]
+                    const t = Math.min(1, val / MAX_EXPOSURE);
+                    // color ramp (dark -> molten gold): you can tweak
+                    const r = Math.floor(150 + t * 105);   // 150 -> 255
+                    const g = Math.floor(120 + t * 80);    // 120 -> 200
+                    const b = Math.floor(60 + t * 40);     // 60 -> 100
+                    const alpha = 0.06 + 0.5 * t;          // base faint + more with exposure
+                    ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
+                    const px = i * cellW;
+                    const py = j * cellH;
+                    ctx.fillRect(px, py, Math.ceil(cellW) + 1, Math.ceil(cellH) + 1);
+                }
             }
 
-            // draw current Eye (snap)
-            const eyeX = cx + (snap.X - campX) * pxPerKm;
-            const eyeY = cy - (snap.Y - campY) * pxPerKm;
+            // draw current Eye
+            const eyeXpx = cx + (snap.X - campX) * pxPerKm;
+            const eyeYpx = cy - (snap.Y - campY) * pxPerKm;
             const radius = Math.max(2, (snap.DiameterKm / 2) * pxPerKm);
 
-            // Eye fill
+            // Eye fill + stroke
             ctx.beginPath();
-            ctx.arc(eyeX, eyeY, radius, 0, Math.PI * 2);
+            ctx.arc(eyeXpx, eyeYpx, radius, 0, Math.PI * 2);
             ctx.fillStyle = "rgba(200,150,80,0.12)";
             ctx.fill();
-            // Eye outline
             ctx.lineWidth = Math.max(1, Math.min(14, snap.SpeedKmPerDay / 1.5));
-            ctx.strokeStyle = "rgba(200,150,80,0.7)";
+            ctx.strokeStyle = "rgba(200,150,80,0.75)";
             ctx.stroke();
 
             // Eye center marker
             ctx.beginPath();
-            ctx.arc(eyeX, eyeY, 6, 0, Math.PI * 2);
+            ctx.arc(eyeXpx, eyeYpx, 6, 0, Math.PI * 2);
             ctx.fillStyle = "#ffd880";
             ctx.fill();
             ctx.fillStyle = "#000";
             ctx.font = "12px Arial";
-            ctx.fillText("Eye Center", eyeX + 10, eyeY + 4);
+            ctx.fillText("Eye Center", eyeXpx + 10, eyeYpx + 4);
 
             // bearing arrow
             const rad = (90 - snap.BaseBearing) * Math.PI / 180;
             const arrowLen = Math.max(40, radius * 0.45);
             ctx.beginPath();
-            ctx.moveTo(eyeX, eyeY);
-            ctx.lineTo(eyeX + Math.cos(rad) * arrowLen, eyeY + Math.sin(rad) * arrowLen);
+            ctx.moveTo(eyeXpx, eyeYpx);
+            ctx.lineTo(eyeXpx + Math.cos(rad) * arrowLen, eyeYpx + Math.sin(rad) * arrowLen);
             ctx.strokeStyle = "#88c0ff";
             ctx.lineWidth = 2;
             ctx.stroke();
 
-            // camp marker at center of viewport
+            // camp marker at center
             ctx.beginPath();
             ctx.arc(cx, cy, 8, 0, Math.PI * 2);
             ctx.fillStyle = "#ff6b6b";
@@ -368,20 +465,19 @@
             ctx.font = "13px Arial";
             ctx.fillText("Camp (you)", cx + 12, cy + 5);
 
-            // debug delta text (pixel delta from previous)
+            // debug: pixel delta
             if (prevState) {
-                const prevPxX = cx + (prevState.X - campX) * pxPerKm;
-                const prevPxY = cy - (prevState.Y - campY) * pxPerKm;
-                const dxPx = (eyeX - prevPxX).toFixed(3);
-                const dyPx = (eyeY - prevPxY).toFixed(3);
+                const prevXpx = cx + (prevState.X - campX) * pxPerKm;
+                const prevYpx = cy - (prevState.Y - campY) * pxPerKm;
+                const dxpx = (eyeXpx - prevXpx).toFixed(3);
+                const dypx = (eyeYpx - prevYpx).toFixed(3);
                 ctx.fillStyle = "#9fb7cc";
                 ctx.font = "12px Arial";
-                ctx.fillText(`Δpx: ${dxPx}, ${dyPx}`, 10, canvas.height - 12);
+                ctx.fillText(`Δpx: ${dxpx}, ${dypx}`, 10, canvas.height - 12);
             }
         }
 
-        /* ========== Button Handlers (wired to your endpoints) ========== */
-
+        /* ========== Button Handlers (same wiring) ========== */
         document.getElementById("centerCamp").addEventListener("click", () => {
             if (!state) return;
             campXInput.value = state.X.toFixed(3);
@@ -404,8 +500,6 @@
 
         document.getElementById("shrinkNow").addEventListener("click", async () => {
             const pct = parseFloat(document.getElementById("shrinkPercent").value) || 10;
-            // instant shrink implemented by ShrinkByPercent endpoint previously; there is /Eye/shrink in older API.
-            // We'll mimic by computing target diameter and calling setDiameter (read current first)
             if (!state) await fetchState();
             const cur = state.DiameterKm;
             const target = Math.max(0.1, cur * (1 - pct / 100));
@@ -490,7 +584,7 @@
         /* ===== Polling loop ===== */
         setInterval(fetchState, POLL_MS);
         fetchState(); // initial
-
     </script>
+
 </body>
 </html>
