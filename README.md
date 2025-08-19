@@ -10,8 +10,11 @@ Designed for use alongside AboveVTT or other virtual tabletop tools, this middle
 In the campaign world, the Eye of the Storm is both sanctuary and prison. Civilization survives only within its calm center, while the deadly Eye Wall outside makes escape nearly impossible. The Eye Almanac helps Dungeon Masters inject tension into sessions by:
 
 -Simulating Eye movement across the world map (6–18 km per in-game day).
+
 -Allowing unpredictable shifts in storm direction, forcing nomadic tribes to adapt.
+
 -Tracking diameter changes—an Eye shrinking in size can create panic as once-safe havens collapse into chaos.
+
 -Generating DM-facing data such as Eye speed, vector changes, and storm intensity.
 
 Players can see this information via a lightweight HTML/JS dashboard that updates live, creating a feeling of urgency and inevitability.
