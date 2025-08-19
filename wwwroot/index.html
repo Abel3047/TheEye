@@ -96,7 +96,7 @@ async function fetchState(){
 
 function render(){
   document.getElementById("metrics").innerHTML = `
-    <div>Pos: (${state.X.toFixed(1)}, ${state.Y.toFixed(1)}) km</div>
+    <div>Eye Position: (${state.X.toFixed(1)}, ${state.Y.toFixed(1)}) km</div>
     <div>Bearing: ${state.BaseBearing.toFixed(1)}°</div>
     <div>Speed: ${state.SpeedKmPerDay.toFixed(2)} km/day</div>
     <div>Diameter: ${state.DiameterKm.toFixed(2)} km</div>
