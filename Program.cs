@@ -4,6 +4,17 @@ using TheEye.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(
+        policy =>
+        {
+            policy.AllowAnyOrigin() // In production, you might restrict this to your domain
+                  .AllowAnyHeader()
+                  .AllowAnyMethod();
+        });
+});
+
 // DI
 builder.Services.AddSingleton<IEyeSimulator, EyeSimulatorService>();
 // register recorder (singleton) - optional: configure path via config
