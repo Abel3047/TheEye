@@ -240,7 +240,7 @@
             const newState = await getState();
             if (!newState) return;   
 
-            console.log("Received state from server:", newState);
+            console.log("Received total hours from server:", newState.TotalElapsedHours);
 
             // shift prev->state
             prevState = state ? { ...state } : null;
@@ -264,20 +264,8 @@
             // animate between prevState -> state to give smooth movement over the poll interval
             animateBetween(prevState, state, POLL_MS);
 
-            updateInGameTime(newState.totalElapsedHours); 
-
             // update last log marker
             document.getElementById("lastLog").innerText = `Last polled: ${new Date().toLocaleTimeString()}`;
-        }
-
-        function updateInGameTime(totalSimulatedHours) {
-            if (totalSimulatedHours === undefined) return;
-
-            const days = Math.floor(totalSimulatedHours / 24);
-            const hours = Math.floor(totalSimulatedHours % 24);
-
-            const timeString = `In-Game Time: ${days} days, ${hours} hours`;
-            document.getElementById("inGameTimeDisplay").innerText = timeString;
         }
 
         /* accumulate exposure onto the grid */
@@ -349,7 +337,8 @@
                     BaseBearing: lerp(a.BaseBearing, b.BaseBearing, t),
                     SpeedKmPerDay: lerp(a.SpeedKmPerDay, b.SpeedKmPerDay, t),
                     ActiveInfluences: b.ActiveInfluences,
-                    LastUpdated: b.LastUpdated
+                    LastUpdated: b.LastUpdated,
+                    TotalElapsedHours: lerp(a.TotalElapsedHours || 0, b.TotalElapsedHours, t)
                 };
                 render(tmp);
                 if (t < 1) requestAnimationFrame(frame);
@@ -361,6 +350,15 @@
         function render(snap) {
             const s = snap || state;
             if (!s) return;
+
+            //Checking the TotalElsapsdf
+            console.log("Received total hours from renederer:", s.TotalElapsedHours);
+
+            const totalSimulatedHours = s.TotalElapsedHours || 0;
+            const days = Math.floor(totalSimulatedHours / 24);
+            const hours = Math.floor(totalSimulatedHours % 24);
+            document.getElementById("inGameTimeDisplay").innerText = `In-Game Time: ${days} days, ${hours} hours`;
+
             // metrics
             document.getElementById("metrics").innerHTML = `
             <div class="muted">Eye Pos: (${s.X.toFixed(3)}, ${s.Y.toFixed(3)}) km</div>
