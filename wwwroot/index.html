@@ -109,7 +109,7 @@
                 Y: <input id="campY" type="number" value="0" step="0.1" />
                 <button id="centerCamp">Center on Eye</button>
             </div>
-            <div class="small" id="eta">ETA: </div>
+            <div class="small" id="inGameTimeDisplay">In-Game Time: loading...</div>
 
             <hr style="border: none; height:1px; background:#0e3244; margin:10px 0;" />
 
@@ -173,7 +173,7 @@
                 <button id="resume">Resume</button>
                 <button id="resetBtn" class="secondary">Reset</button>
             </div>
-            
+
             <div class="small" id="lastLog"></div>
         </div>
 
@@ -203,6 +203,7 @@
         let prevState = null;
         let trail = []; // array of {t: timestamp, X, Y, DiameterKm}
         let initializedCamp = false;
+        let simulationStartTime = null; // NEW: To track elapsed in-game time
 
         // exposure grid (float32 for speed)
         let exposure = new Float32Array(GRID_CELLS_X * GRID_CELLS_Y);
@@ -213,7 +214,7 @@
         const ctx = canvas.getContext("2d");
         const campXInput = document.getElementById("campX");
         const campYInput = document.getElementById("campY");
-        
+
         /* ===== helpers ===== */
         function safeFetch(url, opts) {
             return fetch(url, opts).then(r => {
@@ -239,6 +240,11 @@
         async function fetchState() {
             const newState = await getState();
             if (!newState) return;
+
+            // NEW: On first successful fetch, record the simulation's start time.
+            if (!simulationStartTime) {
+                simulationStartTime = new Date(newState.LastUpdated);
+            }
 
             // shift prev->state
             prevState = state ? { ...state } : null;
@@ -276,8 +282,26 @@
             // animate between prevState -> state to give smooth movement over the poll interval
             animateBetween(prevState, state, POLL_MS);
 
+            // NEW: update the in-game time display
+            updateInGameTime(newState.LastUpdated);
+
             // update last log marker
             document.getElementById("lastLog").innerText = `Last polled: ${new Date().toLocaleTimeString()}`;
+        }
+
+        // NEW: Function to calculate and display total elapsed in-game time
+        function updateInGameTime(currentSimTimestamp) {
+            if (!simulationStartTime) return;
+
+            const now = new Date(currentSimTimestamp);
+            const elapsedMs = now - simulationStartTime;
+
+            const totalHours = elapsedMs / (1000 * 60 * 60);
+            const days = Math.floor(totalHours / 24);
+            const hours = Math.floor(totalHours % 24);
+
+            const timeString = `In-Game Time: ${days} days, ${hours} hours`;
+            document.getElementById("inGameTimeDisplay").innerText = timeString;
         }
 
         /* accumulate exposure onto the grid */
@@ -363,11 +387,11 @@
             if (!s) return;
             // metrics
             document.getElementById("metrics").innerHTML = `
-        <div class="muted">Eye Pos: (${s.X.toFixed(3)}, ${s.Y.toFixed(3)}) km</div>
-        <div class="muted">Bearing: ${s.BaseBearing.toFixed(1)}° • Speed: ${s.SpeedKmPerDay.toFixed(2)} km/day</div>
-        <div><strong>Diameter:</strong> ${s.DiameterKm.toFixed(2)} km</div>
-        <div class="muted">Influences: ${s.ActiveInfluences.length} • Last: ${new Date(s.LastUpdated).toLocaleTimeString()}</div>
-      `;
+            <div class="muted">Eye Pos: (${s.X.toFixed(3)}, ${s.Y.toFixed(3)}) km</div>
+            <div class="muted">Bearing: ${s.BaseBearing.toFixed(1)}° • Speed: ${s.SpeedKmPerDay.toFixed(2)} km/day</div>
+            <div><strong>Diameter:</strong> ${s.DiameterKm.toFixed(2)} km</div>
+            <div class="muted">Influences: ${s.ActiveInfluences.length} • Last: ${new Date(s.LastUpdated).toLocaleTimeString()}</div>
+          `;
             drawCanvas(s);
         }
 
@@ -557,6 +581,8 @@
                 PredictabilityRating: 3
             };
             await safePost(`${API_ROOT}/reset`, payload);
+            // NEW: Reset the start time on the client to sync with the server reset
+            simulationStartTime = null;
             await fetchState();
         });
 
