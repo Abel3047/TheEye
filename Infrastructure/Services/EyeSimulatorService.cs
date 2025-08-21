@@ -50,7 +50,11 @@ namespace TheEye.Infrastructure.Services
         {
             _simulator.AdvanceHours(hours);
             // We must update the timestamp whenever time advances.
-            lock (_simulator) { _simulator.State.LastUpdated = DateTime.UtcNow; }
+            lock (_simulator)
+            { 
+                _simulator.State.LastUpdated = DateTime.UtcNow;
+                _simulator.State.TotalElapsedHours += hours;
+            }
             _ = RecordSnapshotAsync(); // Optionally record after manual advance
         }
         public void SetDiameter(double diameterKm)
@@ -147,6 +151,7 @@ namespace TheEye.Infrastructure.Services
         public void Reset(EyeState newState)
         {
             newState.LastUpdated = DateTime.UtcNow;
+            newState.TotalElapsedHours = 0;
             _simulator.Reset(newState);
             _ = RecordSnapshotAsync();
         }

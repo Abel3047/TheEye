@@ -1,4 +1,5 @@
-﻿using TheEye.Core.Models;
+﻿using TheEye.Core.Entities;
+using TheEye.Core.Models;
 
 namespace TheEye.Application.Interfaces
 {

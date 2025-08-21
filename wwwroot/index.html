@@ -239,12 +239,9 @@
 
         async function fetchState() {
             const newState = await getState();
-            if (!newState) return;
+            if (!newState) return;   
 
-            // NEW: On first successful fetch, record the simulation's start time.
-            if (!simulationStartTime) {
-                simulationStartTime = new Date(newState.LastUpdated);
-            }
+            console.log("Received state from server:", newState);
 
             // shift prev->state
             prevState = state ? { ...state } : null;
@@ -260,21 +257,7 @@
             // append to trail for optional rendering
             trail.push({ t: Date.now(), X: state.X, Y: state.Y, DiameterKm: state.DiameterKm });
             if (trail.length > TRAIL_MAX) trail.shift();
-
-            // compute simulated time delta (hours) using LastUpdated fields if available
-            let simHours = 0.5; // fallback small exposure if timestamps missing
-            try {
-                if (prevState && state && state.LastUpdated && prevState.LastUpdated) {
-                    const then = Date.parse(prevState.LastUpdated);
-                    const now = Date.parse(state.LastUpdated);
-                    const secs = Math.max(0, (now - then) / 1000.0);
-                    simHours = secs / 3600.0;
-                    // if timestamps are identical (sim didn't advance), fallback to 1 hour
-                    if (simHours <= 0) simHours = 1.0;
-                } else {
-                    simHours = 1.0;
-                }
-            } catch (e) { simHours = 1.0; }
+                    
 
             // accumulate exposure on grid cells covered by Eye for simHours
             accumulateExposure(state, simHours);
@@ -282,23 +265,17 @@
             // animate between prevState -> state to give smooth movement over the poll interval
             animateBetween(prevState, state, POLL_MS);
 
-            // NEW: update the in-game time display
-            updateInGameTime(newState.LastUpdated);
+            updateInGameTime(newState.totalElapsedHours); 
 
             // update last log marker
             document.getElementById("lastLog").innerText = `Last polled: ${new Date().toLocaleTimeString()}`;
         }
 
-        // NEW: Function to calculate and display total elapsed in-game time
-        function updateInGameTime(currentSimTimestamp) {
-            if (!simulationStartTime) return;
+        function updateInGameTime(totalSimulatedHours) {
+            if (totalSimulatedHours === undefined) return;
 
-            const now = new Date(currentSimTimestamp);
-            const elapsedMs = now - simulationStartTime;
-
-            const totalHours = elapsedMs / (1000 * 60 * 60);
-            const days = Math.floor(totalHours / 24);
-            const hours = Math.floor(totalHours % 24);
+            const days = Math.floor(totalSimulatedHours / 24);
+            const hours = Math.floor(totalSimulatedHours % 24);
 
             const timeString = `In-Game Time: ${days} days, ${hours} hours`;
             document.getElementById("inGameTimeDisplay").innerText = timeString;
@@ -581,8 +558,6 @@
                 PredictabilityRating: 3
             };
             await safePost(`${API_ROOT}/reset`, payload);
-            // NEW: Reset the start time on the client to sync with the server reset
-            simulationStartTime = null;
             await fetchState();
         });
 
