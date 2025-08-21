@@ -1,4 +1,6 @@
-﻿namespace TheEye.Core.Models
+﻿using TheEye.Core.Models;
+
+namespace TheEye.Core.Entities
 {
     public sealed class EyeState
     {
@@ -9,6 +11,7 @@
         // Direction & movement
         public double BaseBearing { get; set; } // degrees (0 = East, 90 = North)
         public double SpeedKmPerDay { get; set; } // km/day
+        public double TotalElapsedHours { get; set; }
 
         // Diameter of the Eye (km)
         public double DiameterKm { get; set; } = 50.0;

@@ -2,6 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using TheEye.Application.DTOs;
 using TheEye.Application.Interfaces;
+using TheEye.Core.Entities;
 using TheEye.Core.Models;
 
 namespace TheEye.Infrastructure.Controllers
@@ -143,6 +144,7 @@ namespace TheEye.Infrastructure.Controllers
                 PredictabilityRating = s.PredictabilityRating,
                 Paused = s.Paused,
                 LastUpdated = s.LastUpdated,
+                TotalElapsedHours = s.TotalElapsedHours,
                 ActiveInfluences = s.ActiveInfluences.Select(i => new ActiveInfluenceView
                 {
                     Name = i.Name,

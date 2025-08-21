@@ -14,6 +14,7 @@
         public int PredictabilityRating { get; init; }
         public bool Paused { get; init; }
         public DateTime LastUpdated { get; init; }
+        public double TotalElapsedHours { get; set; }
         public List<ActiveInfluenceView> ActiveInfluences { get; init; } = new();
     }
     public sealed class ActiveInfluenceView

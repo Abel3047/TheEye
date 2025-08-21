@@ -50,7 +50,8 @@ public class RealTimeTickerService : IHostedService, IDisposable
             var lastUpdate = currentState.LastUpdated;
 
             // This check is vital to prevent advancing time if another process just did.
-            if (now <= lastUpdate) return;
+            var buffer = TimeSpan.FromMilliseconds(500);
+            if (now <= lastUpdate.Add(buffer)) return;
 
             var elapsedRealSeconds = (now - lastUpdate).TotalSeconds;
 
