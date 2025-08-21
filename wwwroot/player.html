@@ -103,20 +103,14 @@
         // We will receive it from the initial state fetch.
         let campX = 0;
         let campY = 0;
-
-        /* ===== helpers ===== */
-        function safeFetch(url, opts) {
-            return fetch(url, opts).then(r => {
-                if (!r.ok) throw new Error(`HTTP ${r.status}`);
-                return r.json();
-            });
-        }
-
+             
         async function getState() {
             try {
-                return await safeFetch(API_ROOT);
+                const r = await fetch(API_ROOT);
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                return await r.json();
             } catch (e) {
-                console.error("Failed to fetch /Eye", e);
+                console.error("Failed to fetch state", e);
                 return null;
             }
         }
@@ -125,17 +119,14 @@
 
         /* ===== Main poll & animate loop ===== */
         async function fetchState() {
-            const newState = await getState();
-            if (!newState) return;
+            const fullState = await getState();
+            if (!fullState) return; 
 
             prevState = state ? { ...state } : null;
-            state = newState;
+            state = fullState.eye;
 
-            if (!initializedCamp) {
-                campX = state.X;
-                campY = state.Y;
-                initializedCamp = true;
-            }
+            campX = fullState.campX;
+            campY = fullState.campY;
 
             trail.push({ t: Date.now(), X: state.X, Y: state.Y, DiameterKm: state.DiameterKm });
             if (trail.length > TRAIL_MAX) trail.shift();

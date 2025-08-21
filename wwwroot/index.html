@@ -107,6 +107,7 @@
             <div class="row">
                 X: <input id="campX" type="number" value="0" step="0.1" />
                 Y: <input id="campY" type="number" value="0" step="0.1" />
+                <button id="setCampBtn">Set Camp</button>
                 <button id="centerCamp">Center on Eye</button>
             </div>
             <div class="small" id="inGameTimeDisplay">In-Game Time: loading...</div>
@@ -186,6 +187,7 @@
     <script>
         /* ====== Configuration ====== */
         const API_ROOT = "/Eye";
+        const API_ROOT_DM = "/dm"; 
         const POLL_MS = 2000;                 // poll frequency (ms)
         const TRAIL_MAX = 60;                 // how many past points to keep
         const BASE_EYE_DIAMETER = 50.0;       // km used to map scale
@@ -207,6 +209,7 @@
         // exposure grid (float32 for speed)
         let exposure = new Float32Array(GRID_CELLS_X * GRID_CELLS_Y);
         let lastExposureTime = Date.now(); // wall-clock to compute decay
+        let dmKey = null;
 
         // UI elements
         const canvas = document.getElementById("canvas");
@@ -214,20 +217,21 @@
         const campXInput = document.getElementById("campX");
         const campYInput = document.getElementById("campY");
 
-        /* ===== helpers ===== */
-        function safeFetch(url, opts) {
-            return fetch(url, opts).then(r => {
-                if (!r.ok) throw new Error(`HTTP ${r.status}`);
-                return r.json();
-            });
+        function buildDmUrl(endpoint) {
+            if (!dmKey) {
+                alert("DM Key is not set. Please refresh and enter the key.");
+                throw new Error("DM Key required");
+            }
+            return `${API_ROOT_DM}/${endpoint}?dm_key=${encodeURIComponent(dmKey)}`;
         }
-
+        /* ===== helpers ===== */
         async function getState() {
             try {
-                const s = await safeFetch(API_ROOT);
-                return s;
+                const r = await fetch(API_ROOT_PUBLIC);
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                return await r.json();
             } catch (e) {
-                console.error("Failed to fetch /Eye", e);
+                console.error("Failed to fetch state", e);
                 return null;
             }
         }
@@ -237,21 +241,14 @@
         /* ===== Main poll & animate loop ===== */
 
         async function fetchState() {
-            const newState = await getState();
-            if (!newState) return;   
+            const fullState = await getState();
+            if (!fullState) return;   
 
-            console.log("Received total hours from server:", newState.TotalElapsedHours);
-
-            // shift prev->state
             prevState = state ? { ...state } : null;
-            state = newState;
+            state = fullState.eye;
 
-            // initialize camp only ONCE to the Eye center
-            if (!initializedCamp) {
-                campXInput.value = state.X.toFixed(3);
-                campYInput.value = state.Y.toFixed(3);
-                initializedCamp = true;
-            }
+            campXInput.value = fullState.campX.toFixed(3);
+            campYInput.value = fullState.campY.toFixed(3);
 
             // append to trail for optional rendering
             trail.push({ t: Date.now(), X: state.X, Y: state.Y, DiameterKm: state.DiameterKm });
@@ -486,23 +483,29 @@
         }
 
         /* ========== Button Handlers (same wiring) ========== */
-        document.getElementById("centerCamp").addEventListener("click", () => {
+        document.getElementById("centerCamp").addEventListener("click",async () => {
             if (!state) return;
-            campXInput.value = state.X.toFixed(3);
-            campYInput.value = state.Y.toFixed(3);
-            render();
+            await safePost(buildDmUrl("centerCamp"), {});
+            await fetchState();
+        });
+
+        document.getElementById("setCampBtn").addEventListener("click", async () => {
+            const x = parseFloat(campXInput.value);
+            const y = parseFloat(campYInput.value);
+            await safePost(buildDmUrl("setCamp"), { X: x, Y: y });
+            await fetchState();
         });
 
         document.getElementById("setDiameterBtn").addEventListener("click", async () => {
             const d = parseFloat(document.getElementById("setDiameter").value) || 50;
-            await safePost(`${API_ROOT}/setDiameter`, { DiameterKm: d });
+            await safePost(buildDmUrl("setDiameter"), { DiameterKm: d });
             await fetchState();
         });
 
         document.getElementById("shrinkOverBtn").addEventListener("click", async () => {
             const target = parseFloat(document.getElementById("shrinkTarget").value) || 30;
             const hours = parseInt(document.getElementById("shrinkHours").value) || 12;
-            await safePost(`${API_ROOT}/shrink-over-time`, { TargetDiameterKm: target, DurationHours: hours });
+            await safePost(buildDmUrl("shrink-over-time"), { TargetDiameterKm: target, DurationHours: hours });
             await fetchState();
         });
 
@@ -511,18 +514,18 @@
             if (!state) await fetchState();
             const cur = state.DiameterKm;
             const target = Math.max(0.1, cur * (1 - pct / 100));
-            await safePost(`${API_ROOT}/setDiameter`, { DiameterKm: target });
+            await safePost(buildDmUrl("shrink-now"), { DiameterKm: target });
             await fetchState();
         });
 
         document.getElementById("advanceDay").addEventListener("click", async () => {
-            await safePost(`${API_ROOT}/advance`, { Hours: 24 });
+            await safePost(buildDmUrl("advance"), { Hours: 24 });
             await fetchState();
         });
 
         document.getElementById("jumpDaysBtn").addEventListener("click", async () => {
             const days = parseFloat(document.getElementById("jumpDays").value) || 1;
-            await safePost(`${API_ROOT}/jumpDays`, { Days: days });
+            await safePost(buildDmUrl("jumpDays"), { Days: days });
             await fetchState();
         });
 
@@ -531,30 +534,30 @@
             const dir = parseFloat(document.getElementById("infDir").value) || 0;
             const mag = parseFloat(document.getElementById("infMag").value) || 1;
             const dur = parseFloat(document.getElementById("infDur").value) || 24;
-            await safePost(`${API_ROOT}/applyInfluence`, { Name: name, DirectionDeg: dir, MagnitudeKmPerDay: mag, DurationHours: dur });
+            await safePost(buildDmUrl("applyInfluence"), { Name: name, DirectionDeg: dir, MagnitudeKmPerDay: mag, DurationHours: dur });
             await fetchState();
         });
 
         document.getElementById("setBase").addEventListener("click", async () => {
             const bearing = parseFloat(document.getElementById("baseBearing").value) || 90;
             const speed = parseFloat(document.getElementById("baseSpeed").value) || 12;
-            await safePost(`${API_ROOT}/setBase`, { BearingDeg: bearing, SpeedKmPerDay: speed });
+            await safePost(buildDmUrl("setBase"), { BearingDeg: bearing, SpeedKmPerDay: speed });
             await fetchState();
         });
 
         document.getElementById("surgeBtn").addEventListener("click", async () => {
             const factor = parseFloat(document.getElementById("surgeFactor").value) || 2;
             const hours = parseFloat(document.getElementById("surgeHours").value) || 6;
-            await safePost(`${API_ROOT}/surge`, { Factor: factor, DurationHours: hours, Name: "dash" });
+            await safePost(buildDmUrl("surge"), { Factor: factor, DurationHours: hours, Name: "dash" });
             await fetchState();
         });
 
         document.getElementById("pause").addEventListener("click", async () => {
-            await safePost(`${API_ROOT}/pause`, {});
+            await safePost(buildDmUrl("pause"), {});
             await fetchState();
         });
         document.getElementById("resume").addEventListener("click", async () => {
-            await safePost(`${API_ROOT}/resume`, {});
+            await safePost(buildDmUrl("resume"), {});
             await fetchState();
         });
 
@@ -569,7 +572,7 @@
                 CourseShiftChancePerDay: 0.03,
                 PredictabilityRating: 3
             };
-            await safePost(`${API_ROOT}/reset`, payload);
+            await safePost(buildDmUrl("reset"), payload);
             await fetchState();
         });
 
@@ -590,6 +593,7 @@
         }
 
         /* ===== Polling loop ===== */
+        dmKey = prompt("Enter DM Key to enable controls:", "");
         setInterval(fetchState, POLL_MS);
         fetchState(); // initial
     </script>

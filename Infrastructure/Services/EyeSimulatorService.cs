@@ -15,6 +15,9 @@ namespace TheEye.Infrastructure.Services
         CancellationTokenSource? _shrinkCts;
         Task? _shrinkTask;
 
+        private double _campX = 0.0;
+        private double _campY = 0.0;
+
         //DnD real-time to game time session properties
         //default mapping (90 minutes real per simulated day)
         private static readonly double _realSecondsPerSimDay = 90 * 60; // 90 minutes => 5400 seconds
@@ -24,6 +27,7 @@ namespace TheEye.Infrastructure.Services
         public EyeSimulatorService(IHistoryRecorder? recorder = null)
         {
             _recorder = recorder;
+
             var initialState = new EyeState
             {
                 X = 0,
@@ -37,6 +41,9 @@ namespace TheEye.Infrastructure.Services
                 PredictabilityRating = 3,
                 LastUpdated = DateTime.UtcNow // Initialize with current time
             };
+            _campX = initialState.X;
+            _campY = initialState.Y;
+
             _simulator = new EyeSimulator(initialState);
         }
 
@@ -156,7 +163,32 @@ namespace TheEye.Infrastructure.Services
             _ = RecordSnapshotAsync();
         }
 
-        async Task RecordSnapshotAsync()
+        public (double x, double y) GetCampPosition()
+        {
+            lock (_simulator) // Lock to ensure thread safety
+            {
+                return (_campX, _campY);
+            }
+        }
+        public void SetCampPosition(double x, double y)
+        {
+            lock (_simulator)
+            {
+                _campX = x;
+                _campY = y;
+            }
+        }
+        public void CenterCampOnEye()
+        {
+            lock (_simulator)
+            {
+                var state = _simulator.State;
+                _campX = state.X;
+                _campY = state.Y;
+            }
+        }
+
+    async Task RecordSnapshotAsync()
         {
             if (_recorder == null) return;
             try
