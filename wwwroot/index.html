@@ -203,7 +203,6 @@
         let prevState = null;
         let trail = []; // array of {t: timestamp, X, Y, DiameterKm}
         let initializedCamp = false;
-        let simulationStartTime = null; // NEW: To track elapsed in-game time
 
         // exposure grid (float32 for speed)
         let exposure = new Float32Array(GRID_CELLS_X * GRID_CELLS_Y);
@@ -260,7 +259,7 @@
                     
 
             // accumulate exposure on grid cells covered by Eye for simHours
-            accumulateExposure(state, simHours);
+            accumulateExposure(state, 0.5);
 
             // animate between prevState -> state to give smooth movement over the poll interval
             animateBetween(prevState, state, POLL_MS);
