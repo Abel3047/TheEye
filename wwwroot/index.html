@@ -426,7 +426,7 @@
             ctx.arc(eyeXpx, eyeYpx, radius, 0, Math.PI * 2);
             ctx.fillStyle = "rgba(200,150,80,0.12)";
             ctx.fill();
-            ctx.lineWidth = Math.max(1, Math.min(14, snap.SpeedKmPerDay / 1.5));
+            ctx.lineWidth = 2;
             ctx.strokeStyle = "rgba(200,150,80,0.75)";
             ctx.stroke();
 
@@ -455,7 +455,7 @@
 
             // Bearing Arrow (shows intended vector)
             const bearingRad = (90 - snap.BaseBearing) * Math.PI / 180;
-            const arrowLen = Math.max(40, radius * 0.45);
+            const arrowLen = 35 + (snap.SpeedKmPerDay * 3);
             ctx.beginPath();
             ctx.moveTo(eyeXpx, eyeYpx);
             // We invert the Y-component by subtracting the sine value.
