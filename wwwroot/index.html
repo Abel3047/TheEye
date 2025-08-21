@@ -245,10 +245,14 @@
             if (!fullState) return;   
 
             prevState = state ? { ...state } : null;
-            state = fullState.eye;
+            state = fullState.Eye;
 
-            campXInput.value = fullState.campX.toFixed(3);
-            campYInput.value = fullState.campY.toFixed(3);
+            if (!state) return;
+
+            if (campXInput) {
+                campXInput.value = fullState.CampX.toFixed(3);
+                campYInput.value = fullState.CampY.toFixed(3); 
+            }
 
             // append to trail for optional rendering
             trail.push({ t: Date.now(), X: state.X, Y: state.Y, DiameterKm: state.DiameterKm });

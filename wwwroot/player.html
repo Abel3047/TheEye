@@ -123,10 +123,12 @@
             if (!fullState) return; 
 
             prevState = state ? { ...state } : null;
-            state = fullState.eye;
+            state = fullState.Eye;
 
-            campX = fullState.campX;
-            campY = fullState.campY;
+            if (!state) return;
+
+            campX = fullState.CampX;
+            campY = fullState.CampY;
 
             trail.push({ t: Date.now(), X: state.X, Y: state.Y, DiameterKm: state.DiameterKm });
             if (trail.length > TRAIL_MAX) trail.shift();
