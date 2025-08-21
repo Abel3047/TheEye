@@ -49,6 +49,8 @@ namespace TheEye.Infrastructure.Services
         public void AdvanceHours(double hours)
         {
             _simulator.AdvanceHours(hours);
+            // We must update the timestamp whenever time advances.
+            lock (_simulator) { _simulator.State.LastUpdated = DateTime.UtcNow; }
             _ = RecordSnapshotAsync(); // Optionally record after manual advance
         }
         public void SetDiameter(double diameterKm)
@@ -59,6 +61,8 @@ namespace TheEye.Infrastructure.Services
             {
                 _simulator.State.DiameterKm = diameterKm;
             }
+            // We must update the timestamp whenever time advances.
+            _simulator.State.LastUpdated = DateTime.UtcNow;
             _ = RecordSnapshotAsync();
         }
         // shrink instantly by percentage (e.g., 20 -> reduces diameter by 20%)
@@ -70,6 +74,8 @@ namespace TheEye.Infrastructure.Services
                 var factor = Math.Max(0.0, 1.0 - percent / 100.0);
                 _simulator.State.DiameterKm *= factor;
             }
+            // We must update the timestamp whenever time advances.
+            _simulator.State.LastUpdated = DateTime.UtcNow;
             _ = RecordSnapshotAsync();
         }       
         public void ShrinkOverTime(double targetDiameterKm, double durationHours)
@@ -105,6 +111,8 @@ namespace TheEye.Infrastructure.Services
                             lock (_simulator)
                             {
                                 _simulator.State.DiameterKm = start + perHour * h;
+                                // We must update the timestamp whenever time advances.
+                                _simulator.State.LastUpdated = DateTime.UtcNow;
                             }
 
                             await RecordSnapshotAsync();
@@ -114,6 +122,8 @@ namespace TheEye.Infrastructure.Services
                         lock (_simulator)
                         {
                             _simulator.State.DiameterKm = targetDiameterKm;
+                            // We must update the timestamp whenever time advances.
+                            _simulator.State.LastUpdated = DateTime.UtcNow;
                         }
                         await RecordSnapshotAsync();
                     }
@@ -126,6 +136,8 @@ namespace TheEye.Infrastructure.Services
         public void SetBase(double bearingDeg, double speedKmPerDay)
         {
             _simulator.SetBase(bearingDeg, speedKmPerDay);
+            // We must update the timestamp whenever time advances.
+            _simulator.State.LastUpdated = DateTime.UtcNow;
             _ = RecordSnapshotAsync();
         }
         public void TriggerSurge(double factor, double durationHours, string surgeName = "surge")=>
