@@ -2,9 +2,10 @@
 <html>
 <head>
     <meta charset="utf-8" />
-    <title>Eye Almanac — DM Dashboard</title>
+    <title>The Eye — Player View</title>
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <style>
+        /* CSS is identical to index.html, so it's included for brevity */
         :root {
             --panel-bg: #071827;
             --accent: #ffd880;
@@ -37,37 +38,6 @@
             box-shadow: 0 6px 18px rgba(0,0,0,0.6);
         }
 
-        label {
-            display: block;
-            font-size: 12px;
-            color: var(--muted);
-            margin-top: 8px;
-        }
-
-        input[type=number], input[type=text] {
-            width: 100px;
-            padding: 6px;
-            margin-right: 8px;
-            border-radius: 4px;
-            border: 1px solid rgba(255,255,255,0.06);
-            background: #0f222b;
-            color: #e6eef8;
-        }
-
-        button {
-            padding: 8px 10px;
-            margin: 6px 4px 0 0;
-            border-radius: 6px;
-            background: #163247;
-            color: #e6eef8;
-            border: 0;
-            cursor: pointer;
-        }
-
-            button.secondary {
-                background: #0b2a2f;
-            }
-
         .small {
             font-size: 12px;
             color: var(--muted);
@@ -82,13 +52,6 @@
             margin-top: 12px;
         }
 
-        .row {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
         .muted {
             color: var(--muted);
             font-size: 12px;
@@ -96,138 +59,58 @@
     </style>
 </head>
 <body>
-    <h2>The Eye — DM Dashboard</h2>
+    <h2>The Eye — Player View</h2>
 
     <div id="wrap">
-        <div class="panel" id="controls">
+        <div class="panel">
             <div><strong>Eye Metrics</strong></div>
             <div id="metrics" class="small">loading…</div>
-
-            <label>Camp coords (km)</label>
-            <div class="row">
-                X: <input id="campX" type="number" value="0" step="0.1" />
-                Y: <input id="campY" type="number" value="0" step="0.1" />
-                <button id="centerCamp">Center on Eye</button>
-            </div>
+            <hr style="border: none; height:1px; background:#0e3244; margin:10px 0;" />
             <div class="small" id="inGameTimeDisplay">In-Game Time: loading...</div>
-
-            <hr style="border: none; height:1px; background:#0e3244; margin:10px 0;" />
-
-            <div><strong>Diameter</strong></div>
-            <div class="row">
-                <label style="margin:6px 0 0 0;">Set Diameter (km)</label>
-                <input id="setDiameter" type="number" value="50" min="1" />
-                <button id="setDiameterBtn">Set</button>
-            </div>
-            <div class="row" style="margin-top:6px;">
-                <label style="margin:0 8px 0 0;">Shrink over time</label>
-                Target: <input id="shrinkTarget" type="number" value="30" min="1" />
-                Hours: <input id="shrinkHours" type="number" value="12" min="1" style="width:64px" />
-                <button id="shrinkOverBtn">Start</button>
-            </div>
-            <div class="row" style="margin-top:8px;">
-                <label style="margin:0 8px 0 0;">Instant shrink %</label>
-                <input id="shrinkPercent" type="number" value="10" min="1" max="99" />
-                <button id="shrinkNow">Shrink</button>
-            </div>
-
-            <hr style="border: none; height:1px; background:#0e3244; margin:10px 0;" />
-
-            <div><strong>Time & Influence</strong></div>
-            <div class="row">
-                <label>Advance days</label>
-                <input id="jumpDays" type="number" value="1" min="1" />
-                <button id="jumpDaysBtn">Jump</button>
-                <button id="advanceDay">+1 day</button>
-            </div>
-
-            <div style="margin-top:8px;"><strong>Influence (wind / push)</strong></div>
-            <div class="row">
-                <input id="infName" type="text" placeholder="name (optional)" />
-                <input id="infDir" type="number" placeholder="deg" value="90" style="width:64px" />
-                <input id="infMag" type="number" placeholder="km/day" value="5" style="width:80px" />
-                <input id="infDur" type="number" placeholder="hours" value="72" style="width:80px" />
-                <button id="applyInf">Apply</button>
-            </div>
-
-            <hr style="border: none; height:1px; background:#0e3244; margin:10px 0;" />
-
-            <div><strong>Base / Surge / Ops</strong></div>
-            <div class="row">
-                <label>Set base (bearing°, km/day)</label>
-                <input id="baseBearing" type="number" value="90" style="width:80px" />
-                <input id="baseSpeed" type="number" value="12" style="width:80px" />
-                <button id="setBase">Set</button>
-            </div>
-            <div class="row" style="margin-top:6px;">
-                <label>Surge</label>
-                Factor: <input id="surgeFactor" type="number" value="2" style="width:64px" />
-                Hours: <input id="surgeHours" type="number" value="6" style="width:64px" />
-                <button id="surgeBtn">Trigger</button>
-            </div>
-
-            <hr style="border: none; height:1px; background:#0e3244; margin:10px 0;" />
-
-            <div class="row">
-                <button id="pause">Pause</button>
-                <button id="resume">Resume</button>
-                <button id="resetBtn" class="secondary">Reset</button>
-            </div>
-
-            <div class="small" id="lastLog"></div>
         </div>
 
         <div style="flex:1;">
             <canvas id="canvas" width="1000" height="600"></canvas>
-            <div class="small muted" style="margin-top:6px;">Camp is fixed in the center. Eye moves relative to camp. Trail shows last positions (fading).</div>
+            <div class="small muted" style="margin-top:6px;">Camp is fixed in the center. Eye moves relative to camp.</div>
         </div>
     </div>
 
     <script>
         /* ====== Configuration ====== */
-        const API_ROOT = "/Eye";
-        const POLL_MS = 2000;                 // poll frequency (ms)
-        const TRAIL_MAX = 60;                 // how many past points to keep
-        const BASE_EYE_DIAMETER = 50.0;       // km used to map scale
-        const BASE_EYE_COVER = 0.85;          // proportion of smallest canvas dim for base diameter (85%)
-
-        /* Exposure grid config */
-        const GRID_CELLS_X = 160;             // resolution horizontally (160 => 160*100 operations; tune if needed)
-        const GRID_CELLS_Y = 96;              // resolution vertically (keeps roughly same aspect as 1000x600)
-        const EXPOSURE_DECAY_PER_SECOND = 0.08; // how fast exposure fades (higher = faster fade)
-        const MAX_EXPOSURE = 20.0;            // clamp exposure for color mapping
+        const API_ROOT = "/Eye"; // This still points to the public GET endpoint
+        const POLL_MS = 2000;
+        const TRAIL_MAX = 60;
+        const BASE_EYE_DIAMETER = 50.0;
+        const BASE_EYE_COVER = 0.85;
+        const GRID_CELLS_X = 160;
+        const GRID_CELLS_Y = 96;
+        const EXPOSURE_DECAY_PER_SECOND = 0.08;
+        const MAX_EXPOSURE = 20.0;
 
         /* =========================== */
 
         let state = null;
         let prevState = null;
-        let trail = []; // array of {t: timestamp, X, Y, DiameterKm}
+        let trail = [];
         let initializedCamp = false;
-
-        // exposure grid (float32 for speed)
         let exposure = new Float32Array(GRID_CELLS_X * GRID_CELLS_Y);
-        let lastExposureTime = Date.now(); // wall-clock to compute decay
+        let lastExposureTime = Date.now();
 
-        // UI elements
         const canvas = document.getElementById("canvas");
         const ctx = canvas.getContext("2d");
-        const campXInput = document.getElementById("campX");
-        const campYInput = document.getElementById("campY");
 
-        /* ===== helpers ===== */
-        function safeFetch(url, opts) {
-            return fetch(url, opts).then(r => {
-                if (!r.ok) throw new Error(`HTTP ${r.status}`);
-                return r.json();
-            });
-        }
-
+        // We need a camp position to render, but players can't change it.
+        // We will receive it from the initial state fetch.
+        let campX = 0;
+        let campY = 0;
+             
         async function getState() {
             try {
-                const s = await safeFetch(API_ROOT);
-                return s;
+                const r = await fetch(API_ROOT);
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                return await r.json();
             } catch (e) {
-                console.error("Failed to fetch /Eye", e);
+                console.error("Failed to fetch state", e);
                 return null;
             }
         }
@@ -235,37 +118,23 @@
         function lerp(a, b, t) { return a + (b - a) * t; }
 
         /* ===== Main poll & animate loop ===== */
-
         async function fetchState() {
-            const newState = await getState();
-            if (!newState) return;   
+            const fullState = await getState();
+            if (!fullState) return; 
 
-            console.log("Received total hours from server:", newState.TotalElapsedHours);
-
-            // shift prev->state
             prevState = state ? { ...state } : null;
-            state = newState;
+            state = fullState.Eye;
 
-            // initialize camp only ONCE to the Eye center
-            if (!initializedCamp) {
-                campXInput.value = state.X.toFixed(3);
-                campYInput.value = state.Y.toFixed(3);
-                initializedCamp = true;
-            }
+            if (!state) return;
 
-            // append to trail for optional rendering
+            campX = fullState.CampX;
+            campY = fullState.CampY;
+
             trail.push({ t: Date.now(), X: state.X, Y: state.Y, DiameterKm: state.DiameterKm });
             if (trail.length > TRAIL_MAX) trail.shift();
-                    
 
-            // accumulate exposure on grid cells covered by Eye for simHours
             accumulateExposure(state, 0.5);
-
-            // animate between prevState -> state to give smooth movement over the poll interval
             animateBetween(prevState, state, POLL_MS);
-
-            // update last log marker
-            document.getElementById("lastLog").innerText = `Last polled: ${new Date().toLocaleTimeString()}`;
         }
 
         /* accumulate exposure onto the grid */
@@ -280,10 +149,6 @@
             // world area shown by canvas (in km)
             const worldWidthKm = canvas.width / pxPerKm;
             const worldHeightKm = canvas.height / pxPerKm;
-
-            // camp world coords
-            const campX = parseFloat(campXInput.value) || snap.X;
-            const campY = parseFloat(campYInput.value) || snap.Y;
 
             // Eye center relative to camp (in km)
             const eyeRelX = snap.X - campX;
@@ -361,11 +226,11 @@
 
             // metrics
             document.getElementById("metrics").innerHTML = `
-            <div class="muted">Eye Pos: (${s.X.toFixed(3)}, ${s.Y.toFixed(3)}) km</div>
-            <div class="muted">Bearing: ${s.BaseBearing.toFixed(1)}° • Speed: ${s.SpeedKmPerDay.toFixed(2)} km/day</div>
-            <div><strong>Diameter:</strong> ${s.DiameterKm.toFixed(2)} km</div>
-            <div class="muted">Influences: ${s.ActiveInfluences.length} • Last: ${new Date(s.LastUpdated).toLocaleTimeString()}</div>
-          `;
+      <div class="muted">Eye Pos: (${s.X.toFixed(3)}, ${s.Y.toFixed(3)}) km</div>
+      <div class="muted">Bearing: ${s.BaseBearing.toFixed(1)}° • Speed: ${s.SpeedKmPerDay.toFixed(2)} km/day</div>
+      <div><strong>Diameter:</strong> ${s.DiameterKm.toFixed(2)} km</div>
+      <div class="muted">Influences: ${s.ActiveInfluences.length} • Last: ${new Date(s.LastUpdated).toLocaleTimeString()}</div>
+    `;
             drawCanvas(s);
         }
 
@@ -386,13 +251,7 @@
             const cy = canvas.height / 2;
             const minDim = Math.min(canvas.width, canvas.height);
             const desiredPx = minDim * BASE_EYE_COVER;
-            const pxPerKm = desiredPx / BASE_EYE_DIAMETER;
-            const worldWidthKm = canvas.width / pxPerKm;
-            const worldHeightKm = canvas.height / pxPerKm;
-
-            // camp world coords
-            const campX = parseFloat(campXInput.value) || (snap ? snap.X : 0);
-            const campY = parseFloat(campYInput.value) || (snap ? snap.Y : 0);
+            const pxPerKm = desiredPx / BASE_EYE_DIAMETER;            
 
             // draw exposure grid as colored rectangles (fade by exposure)
             const cellW = canvas.width / GRID_CELLS_X;
@@ -485,114 +344,9 @@
             }
         }
 
-        /* ========== Button Handlers (same wiring) ========== */
-        document.getElementById("centerCamp").addEventListener("click", () => {
-            if (!state) return;
-            campXInput.value = state.X.toFixed(3);
-            campYInput.value = state.Y.toFixed(3);
-            render();
-        });
-
-        document.getElementById("setDiameterBtn").addEventListener("click", async () => {
-            const d = parseFloat(document.getElementById("setDiameter").value) || 50;
-            await safePost(`${API_ROOT}/setDiameter`, { DiameterKm: d });
-            await fetchState();
-        });
-
-        document.getElementById("shrinkOverBtn").addEventListener("click", async () => {
-            const target = parseFloat(document.getElementById("shrinkTarget").value) || 30;
-            const hours = parseInt(document.getElementById("shrinkHours").value) || 12;
-            await safePost(`${API_ROOT}/shrink-over-time`, { TargetDiameterKm: target, DurationHours: hours });
-            await fetchState();
-        });
-
-        document.getElementById("shrinkNow").addEventListener("click", async () => {
-            const pct = parseFloat(document.getElementById("shrinkPercent").value) || 10;
-            if (!state) await fetchState();
-            const cur = state.DiameterKm;
-            const target = Math.max(0.1, cur * (1 - pct / 100));
-            await safePost(`${API_ROOT}/setDiameter`, { DiameterKm: target });
-            await fetchState();
-        });
-
-        document.getElementById("advanceDay").addEventListener("click", async () => {
-            await safePost(`${API_ROOT}/advance`, { Hours: 24 });
-            await fetchState();
-        });
-
-        document.getElementById("jumpDaysBtn").addEventListener("click", async () => {
-            const days = parseFloat(document.getElementById("jumpDays").value) || 1;
-            await safePost(`${API_ROOT}/jumpDays`, { Days: days });
-            await fetchState();
-        });
-
-        document.getElementById("applyInf").addEventListener("click", async () => {
-            const name = document.getElementById("infName").value || undefined;
-            const dir = parseFloat(document.getElementById("infDir").value) || 0;
-            const mag = parseFloat(document.getElementById("infMag").value) || 1;
-            const dur = parseFloat(document.getElementById("infDur").value) || 24;
-            await safePost(`${API_ROOT}/applyInfluence`, { Name: name, DirectionDeg: dir, MagnitudeKmPerDay: mag, DurationHours: dur });
-            await fetchState();
-        });
-
-        document.getElementById("setBase").addEventListener("click", async () => {
-            const bearing = parseFloat(document.getElementById("baseBearing").value) || 90;
-            const speed = parseFloat(document.getElementById("baseSpeed").value) || 12;
-            await safePost(`${API_ROOT}/setBase`, { BearingDeg: bearing, SpeedKmPerDay: speed });
-            await fetchState();
-        });
-
-        document.getElementById("surgeBtn").addEventListener("click", async () => {
-            const factor = parseFloat(document.getElementById("surgeFactor").value) || 2;
-            const hours = parseFloat(document.getElementById("surgeHours").value) || 6;
-            await safePost(`${API_ROOT}/surge`, { Factor: factor, DurationHours: hours, Name: "dash" });
-            await fetchState();
-        });
-
-        document.getElementById("pause").addEventListener("click", async () => {
-            await safePost(`${API_ROOT}/pause`, {});
-            await fetchState();
-        });
-        document.getElementById("resume").addEventListener("click", async () => {
-            await safePost(`${API_ROOT}/resume`, {});
-            await fetchState();
-        });
-
-        document.getElementById("resetBtn").addEventListener("click", async () => {
-            const payload = {
-                X: parseFloat(campXInput.value) || 0,
-                Y: parseFloat(campYInput.value) || 0,
-                BaseBearing: parseFloat(document.getElementById("baseBearing").value) || 90,
-                SpeedKmPerDay: parseFloat(document.getElementById("baseSpeed").value) || 12,
-                DriftVarianceDeg: 5.0,
-                JitterFraction: 0.08,
-                CourseShiftChancePerDay: 0.03,
-                PredictabilityRating: 3
-            };
-            await safePost(`${API_ROOT}/reset`, payload);
-            await fetchState();
-        });
-
-        /* ===== HTTP helper wrappers ===== */
-        async function safePost(url, body) {
-            try {
-                const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-                if (!r.ok) {
-                    const txt = await r.text();
-                    console.error("POST failed", r.status, txt);
-                    alert("Server error: " + r.status + (txt ? ("\n" + txt) : ""));
-                } else {
-                    return await r.json();
-                }
-            } catch (e) {
-                console.error("Network POST failed", e);
-            }
-        }
-
         /* ===== Polling loop ===== */
         setInterval(fetchState, POLL_MS);
         fetchState(); // initial
     </script>
-
 </body>
 </html>

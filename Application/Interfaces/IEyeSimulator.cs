@@ -26,5 +26,9 @@ namespace TheEye.Application.Interfaces
         /// This call is non-blocking; it schedules the shrink operation.
         /// </summary>
         void ShrinkOverTime(double targetDiameterKm, double durationHours);
+
+        (double x, double y) GetCampPosition();
+        void SetCampPosition(double x, double y);
+        void CenterCampOnEye();
     }
 }
