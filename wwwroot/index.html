@@ -426,7 +426,7 @@
             ctx.arc(eyeXpx, eyeYpx, radius, 0, Math.PI * 2);
             ctx.fillStyle = "rgba(200,150,80,0.12)";
             ctx.fill();
-            ctx.lineWidth = Math.max(1, Math.min(14, snap.SpeedKmPerDay / 1.5));
+            ctx.lineWidth = 2;
             ctx.strokeStyle = "rgba(200,150,80,0.75)";
             ctx.stroke();
 
@@ -439,14 +439,29 @@
             ctx.font = "12px Arial";
             ctx.fillText("Eye Center", eyeXpx + 10, eyeYpx + 4);
 
-            // bearing arrow
-            const rad = (90 - snap.BaseBearing) * Math.PI / 180;
-            const arrowLen = Math.max(40, radius * 0.45);
+            // North Indicator
+            const northLen = Math.max(20, radius * 0.25);
             ctx.beginPath();
             ctx.moveTo(eyeXpx, eyeYpx);
-            ctx.lineTo(eyeXpx + Math.cos(rad) * arrowLen, eyeYpx + Math.sin(rad) * arrowLen);
-            ctx.strokeStyle = "#88c0ff";
-            ctx.lineWidth = 2;
+            ctx.lineTo(eyeXpx, eyeYpx - northLen); // Straight up
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+            ctx.lineWidth = 1;
+            ctx.setLineDash([2, 3]); // Make it a dashed line
+            ctx.stroke();
+            ctx.setLineDash([]); // Reset to solid lines
+            ctx.font = "10px Arial";
+            ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+            ctx.fillText("N", eyeXpx + 4, eyeYpx - northLen - 4);
+
+            // Bearing Arrow (shows intended vector)
+            const bearingRad = (90 - snap.BaseBearing) * Math.PI / 180;
+            const arrowLen = 35 + (snap.SpeedKmPerDay * 3);
+            ctx.beginPath();
+            ctx.moveTo(eyeXpx, eyeYpx);
+            // We invert the Y-component by subtracting the sine value.
+            ctx.lineTo(eyeXpx + Math.cos(bearingRad) * arrowLen, eyeYpx - Math.sin(bearingRad) * arrowLen);
+            ctx.strokeStyle = "#88c0ff"; // Blue for the intended vector
+            ctx.lineWidth = 3;
             ctx.stroke();
 
             // camp marker at center

@@ -108,7 +108,7 @@ namespace TheEye.Core.Entities
                 {
                     // inf.MagnitudeKmPerDay is additional km/day in inf.DirectionDeg
                     double magThisHour = inf.MagnitudeKmPerDay * hourFraction;
-                    double rad = DegToRad(inf.DirectionDeg);
+                    double rad = DegToRad(90.0 - inf.DirectionDeg);
                     influenceX += magThisHour * Math.Cos(rad);
                     influenceY += magThisHour * Math.Sin(rad);
 
@@ -121,7 +121,7 @@ namespace TheEye.Core.Entities
 
             // Also compute weighting from combined influences: they modify final heading
             // We'll calculate a base heading vector from base bearing & base speed
-            double baseRad = DegToRad(State.BaseBearing + drift);
+            double baseRad = DegToRad(90.0 - State.BaseBearing + drift);
             double baseX = moveDistance * Math.Cos(baseRad);
             double baseY = moveDistance * Math.Sin(baseRad);
 
