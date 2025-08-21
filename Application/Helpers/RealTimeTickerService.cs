@@ -12,7 +12,7 @@ public class RealTimeTickerService : IHostedService, IDisposable
     /// to pass, (which is approximately how long it will take before the Wall reaches the camp), then you put in 90 minutes.
     /// But if you want a day to match 1 minute of real time, you set this to 1 minute (60 seconds).
     /// </summary>
-    private const double RealSecondsPerSimulatedDay = 90 * 60;
+    private const double RealSecondsPerSimulatedDay = 0.5 * 60;
     private const double SimulatedHoursPerRealSecond = 24.0 / RealSecondsPerSimulatedDay;
 
     public RealTimeTickerService(IEyeSimulator simulator, ILogger<RealTimeTickerService> logger)
