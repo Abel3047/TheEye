@@ -1,4 +1,5 @@
 ﻿using TheEye.Application.DTOs;
+using TheEye.Application.Helpers;
 using TheEye.Application.Interfaces;
 using TheEye.Core.Entities;
 using TheEye.Core.Models;
@@ -188,7 +189,34 @@ namespace TheEye.Infrastructure.Services
             }
         }
 
-    async Task RecordSnapshotAsync()
+        public string ExportEye()
+        {
+           var snapshot= Mapper.MapEyeStateToSnapShotDto(GetStateSnapshot());
+            //Serialize to JSON
+            return System.Text.Json.JsonSerializer.Serialize(snapshot);
+        }
+
+        public void ImportEye(string eyeSnapshot)
+        {
+            EyeSnapshotDto dto;
+            //Try to deserialize to EyeSnapshotDto
+            try
+            {
+                dto = System.Text.Json.JsonSerializer.Deserialize<EyeSnapshotDto>(eyeSnapshot)??new EyeSnapshotDto();
+            }
+            catch (Exception)
+            {
+                throw new InvalidCastException("Invalid Eye Snapshot format. Either that or the deserializer didn't work properly");
+            }
+            //Check if it has valid values
+            if(dto==null)throw new ArgumentNullException("eyeSnapshot", "Eye Snapshot cannot be null or empty");
+
+            //Map to EyeState and reset simulator
+            var state = Mapper.MapSnapShotDtotoEyeState(dto);
+            Reset(state);
+        }
+
+        async Task RecordSnapshotAsync()
         {
             if (_recorder == null) return;
             try
@@ -220,7 +248,6 @@ namespace TheEye.Infrastructure.Services
             }
             catch { /* swallow */ }
         }
-    
-
+        
     }
 }

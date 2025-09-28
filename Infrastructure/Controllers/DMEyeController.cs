@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
+using System.Text;
 using TheEye.Application.DTOs;
 using TheEye.Application.Interfaces;
 using TheEye.Core.Entities;
@@ -152,6 +153,32 @@ namespace TheEye.Infrastructure.Controllers
             return Ok("Camp centered on eye");
         }
 
+        [HttpPost("exporteye")]
+        public ActionResult ExportEyeState([FromQuery] string dm_key)
+        {
+            if (!IsAuthorized(dm_key)) return Unauthorized();
+            return 
+                File(Encoding.UTF8
+                .GetBytes(_sim.ExportEye()),"application/json",$"eye_state_{DateTime.UtcNow:yyyyMMdd_HHmmss}.json");
+        }
+        [HttpPost("importeye")]
+        public IActionResult ImportEyeState([FromQuery] string dm_key, [FromBody] ImportRequest request)
+        {
+            if (!IsAuthorized(dm_key)) return Unauthorized();
+            try
+            {
+                _sim.ImportEye(request.EyeSnapshot);
+            }
+            catch (Exception ex)
+            {
+                BadRequest(ex.Message);
+                throw;
+            }
+            
+            return Ok("Eye State successfully imported");
+        }
+
+
         public record SetCampRequest { public double X { get; init; } public double Y { get; init; } }
 
 
@@ -179,6 +206,9 @@ namespace TheEye.Infrastructure.Controllers
             public double? CourseShiftChancePerDay { get; init; }
             public int? PredictabilityRating { get; init; }
         }
-
+        public record ImportRequest
+        {
+            public string? EyeSnapshot { get; set; }
+        }
     }
 }
