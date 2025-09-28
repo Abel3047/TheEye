@@ -162,12 +162,12 @@ namespace TheEye.Infrastructure.Controllers
                 .GetBytes(_sim.ExportEye()),"application/json",$"eye_state_{DateTime.UtcNow:yyyyMMdd_HHmmss}.json");
         }
         [HttpPost("importeye")]
-        public IActionResult ImportEyeState([FromQuery] string dm_key, string eyeSnapshot)
+        public IActionResult ImportEyeState([FromQuery] string dm_key, [FromBody] ImportRequest request)
         {
             if (!IsAuthorized(dm_key)) return Unauthorized();
             try
             {
-                _sim.ImportEye(eyeSnapshot);
+                _sim.ImportEye(request.EyeSnapshot);
             }
             catch (Exception ex)
             {
@@ -206,6 +206,9 @@ namespace TheEye.Infrastructure.Controllers
             public double? CourseShiftChancePerDay { get; init; }
             public int? PredictabilityRating { get; init; }
         }
-
+        public record ImportRequest
+        {
+            public string? EyeSnapshot { get; set; }
+        }
     }
 }

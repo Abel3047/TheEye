@@ -173,9 +173,15 @@
                 <button id="pause">Pause</button>
                 <button id="resume">Resume</button>
                 <button id="resetBtn" class="secondary">Reset</button>
+                <button id="exportEyeState">Export Eye State</button>
             </div>
 
-            <button id="exportEyeState">Export Eye State</button>
+            
+
+            <div class="row">
+                <input type="file" id="importEyeState" accept=".json" style="display: none;">
+                <button id="importButton">Import Eye State</button>
+            </div>
 
             <div class="small" id="lastLog"></div>
         </div>
@@ -606,6 +612,67 @@
             document.body.appendChild(anchor);
             anchor.click();
             document.body.removeChild(anchor);
+        });
+
+        document.getElementById("importButton").addEventListener("click", async () => {
+            const fileInput = document.getElementById("importEyeState");
+            fileInput.click();
+        });
+
+        document.getElementById("importEyeState").addEventListener("change", async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            try {
+                const reader = new FileReader();
+
+                // Add progress tracking
+                reader.onprogress = (event) => {
+                    if (event.lengthComputable) {
+                        const percentLoaded = Math.round((event.loaded / event.total) * 100);
+                        console.log(`Loading file: ${percentLoaded}%`);
+                    }
+                };
+
+                // Add error handling
+                reader.onerror = () => {
+                    console.error("Error reading file");
+                    alert("Failed to read the file. Please try again.");
+                };
+
+                reader.onload = async (event) => {
+                    try {
+                        const url = buildDmUrl("importeye");
+                        const response = await fetch(url, {
+                            method: 'POST',
+                            headers: {
+                                'dm-key': dmKey,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                eyeSnapshot: event.target.result
+                            })
+                        });
+
+                        if (!response.ok) {
+                            const error = await response.text();
+                            throw new Error(`Import failed: ${error}`);
+                        }
+
+                        // Force immediate state update
+                        await fetchState();
+                        console.log("Eye state successfully imported");
+                    } catch (error) {
+                        console.error("Error importing eye state:", error);
+                        alert(`Failed to import eye state: ${error.message}`);
+                    }
+                };
+
+                reader.readAsText(file);
+            } catch (error) {
+                console.error("Error initializing file import:", error);
+                alert(`Failed to initialize import: ${error.message}`);
+            }
         });
 
         /* ===== HTTP helper wrappers ===== */
