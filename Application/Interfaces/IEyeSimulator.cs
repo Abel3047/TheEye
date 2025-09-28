@@ -30,5 +30,7 @@ namespace TheEye.Application.Interfaces
         (double x, double y) GetCampPosition();
         void SetCampPosition(double x, double y);
         void CenterCampOnEye();
+        string ExportEye();
+        void ImportEye(string eyeSnapshot);
     }
 }

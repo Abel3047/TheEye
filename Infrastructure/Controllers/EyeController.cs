@@ -1,8 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using TheEye.Application.DTOs;
 using TheEye.Application.Interfaces;
-using TheEye.Core.Entities;
-using TheEye.Core.Models;
+using TheEye.Application.Helpers;
 
 namespace TheEye.Infrastructure.Controllers
 {
@@ -33,39 +32,11 @@ namespace TheEye.Infrastructure.Controllers
 
             var fullState = new FullStateDto
             {
-                Eye = MapToDto(eyeState), // Use your existing helper
+                Eye = Mapper.MapEyeStateToSnapShotDto(eyeState),
                 CampX = campX,
                 CampY = campY
             };
             return Ok(fullState);
-        }
-
-        // THIS HELPER METHOD STAYS because the Get() method uses it.
-        static EyeSnapshotDto MapToDto(EyeState s)
-        {
-            return new EyeSnapshotDto
-            {
-                Id = s.Id,
-                X = s.X,
-                Y = s.Y,
-                BaseBearing = s.BaseBearing,
-                SpeedKmPerDay = s.SpeedKmPerDay,
-                DiameterKm = s.DiameterKm,
-                DriftVarianceDeg = s.DriftVarianceDeg,
-                JitterFraction = s.JitterFraction,
-                CourseShiftChancePerDay = s.CourseShiftChancePerDay,
-                PredictabilityRating = s.PredictabilityRating,
-                Paused = s.Paused,
-                LastUpdated = s.LastUpdated,
-                TotalElapsedHours = s.TotalElapsedHours,
-                ActiveInfluences = s.ActiveInfluences.Select(i => new ActiveInfluenceView
-                {
-                    Name = i.Name,
-                    DirectionDeg = i.DirectionDeg,
-                    MagnitudeKmPerDay = i.MagnitudeKmPerDay,
-                    RemainingHours = i.RemainingHours
-                }).ToList()
-            };
         }
 
     }

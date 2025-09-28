@@ -7,7 +7,7 @@
         public double Y { get; init; }
         public double BaseBearing { get; init; }
         public double SpeedKmPerDay { get; init; }
-        public double DiameterKm { get; init; } // NEW
+        public double DiameterKm { get; init; } 
         public double DriftVarianceDeg { get; init; }
         public double JitterFraction { get; init; }
         public double CourseShiftChancePerDay { get; init; }

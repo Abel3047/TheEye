@@ -23,7 +23,7 @@ namespace TheEye.Core.Entities
         public int PredictabilityRating { get; set; } = 3;
         public bool Paused { get; set; } = false;
         public DateTime LastUpdated { get; set; } = DateTime.UtcNow;
-        public List<ActiveInfluence> ActiveInfluences { get; } = new();
+        public List<ActiveInfluence> ActiveInfluences { get; init; } = new();
 
     }
 }

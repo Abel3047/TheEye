@@ -199,7 +199,6 @@
         const EXPOSURE_DECAY_PER_SECOND = 0.08; // how fast exposure fades (higher = faster fade)
         const MAX_EXPOSURE = 20.0;            // clamp exposure for color mapping
 
-        /* =========================== */
 
         let state = null;
         let prevState = null;
@@ -224,6 +223,7 @@
             }
             return `${API_ROOT_DM}/${endpoint}?dm_key=${encodeURIComponent(dmKey)}`;
         }
+
         /* ===== helpers ===== */
         async function getState() {
             try {
@@ -578,6 +578,32 @@
             };
             await safePost(buildDmUrl("reset"), payload);
             await fetchState();
+        });
+
+        document.getElementById("exportEyeState").addEventListener("click", async () => {
+            const url = buildDmUrl("exporteye");
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'dm-key': dmKey
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const blob = await response.blob();
+            const urlObject = window.URL || window.webkitURL;
+            const downloadUrl = urlObject.createObjectURL(blob);
+
+            const anchor = document.createElement('a');
+            anchor.href = downloadUrl;
+            anchor.download = response.headers.get('filename') || 'eye_state.json';
+
+            document.body.appendChild(anchor);
+            anchor.click();
+            document.body.removeChild(anchor);
         });
 
         /* ===== HTTP helper wrappers ===== */
